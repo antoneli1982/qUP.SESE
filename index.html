@@ -445,7 +445,7 @@ var Br = We.string().min(1).max(100),
   ZA = We.string().trim().min(1).max(140),
   Eh = We.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(e => !Number.isNaN(Date.parse(e)) && new Date(e).toISOString().slice(0, 10) === e, "Data inv\xE1lida"),
   lc = We.object({
-    trainingCatalog: We.array(We.object({id:Br,title:ZA,description:We.string().max(3000),hours:We.number().positive().max(10000),validityMonths:We.number().int().min(0).max(1200).default(0),tags:We.array(We.string().trim().min(1).max(60)).max(30).default([])})).max(10000).default([]),
+    trainingCatalog: We.array(We.object({id:Br,title:ZA,description:We.string().max(3000),hours:We.number().positive().max(10000).nullable().default(null),validityMonths:We.number().int().min(0).max(1200).default(0),tags:We.array(We.string().trim().min(1).max(60)).max(30).default([])})).max(10000).default([]),
     departmentTrainings: We.array(We.object({id:Br,departmentId:Br,trainingId:Br})).max(20000).default([]),
     absences: We.array(We.object({id:Br,employeeId:Br,startDate:Eh,endDate:We.union([Eh,We.literal("")]),reason:We.string().max(1000).default(""),recycled:We.boolean().default(false),recycledDate:We.union([Eh,We.literal("")]).default("")}).refine(item=>item.startDate<=Xo()&&(!item.endDate||(item.endDate>=item.startDate&&item.endDate<=Xo())),"Confira as datas do afastamento.").refine(item=>!item.recycled||(!!item.endDate&&!!item.recycledDate&&item.recycledDate>=item.endDate&&item.recycledDate<=Xo()),"A reciclagem exige um afastamento encerrado e uma data válida.")).max(20000).default([]),
     departments: We.array(We.object({
@@ -476,7 +476,7 @@ var Br = We.string().min(1).max(100),
       employeeId: Br,
       title: ZA,
       description: We.string().max(3e3),
-      hours: We.number().positive().max(1e4),
+      hours: We.number().positive().max(1e4).nullable().default(null),
       date: Eh,
       templateId:We.string().max(100).default(""), tags:We.array(We.string().max(60)).max(30).default([]),
       internal:We.boolean().default(false), external:We.boolean().default(false),homologated:We.boolean().default(false),
@@ -681,7 +681,7 @@ function UD(e, t = !1) {
       ref: i["!ref"]
     }, XLSX.utils.book_append_sheet(o, i, "Matriz_Consulta");
   }
-  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas e das colunas da primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Informe horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: ID, Nome, ID_Departamento. Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Carga_Horaria, Data."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
+  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas e das colunas da primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: ID, Nome, ID_Departamento. Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
     l = XLSX.utils.aoa_to_sheet(n);
   return l["!cols"] = [{
     wch: 28
@@ -742,7 +742,7 @@ function QD(e) {
         raw: !0
       }),
       u = (i[0] || []).map(At),
-      d = l.filter(c => !u.includes(c) && !(n === "Treinamentos" && ["ID_Treinamento_Geral","Tags","Interno","Externo","Homologado"].includes(c)));
+      d = l.filter(c => !u.includes(c) && !(["Treinamentos", "Treinamentos_Gerais"].includes(n) && c === "Carga_Horaria") && !(n === "Treinamentos" && ["ID_Treinamento_Geral","Tags","Interno","Externo","Homologado"].includes(c)));
     if (d.length) throw Error(`${n}: colunas ausentes: ${d.join(", ")}.`);
     for (let c = 1; c < i.length; c++) {
       if (i[c].every(m => m === "" || m == null)) continue;
@@ -781,7 +781,7 @@ function QD(e) {
           employeeId: At(f.ID_Colaborador),
           title: At(f.Titulo),
           description: At(f.Descricao),
-          hours: Number(At(f.Carga_Horaria).replace(",", ".")),
+          hours: At(f.Carga_Horaria) === "" ? null : Number(At(f.Carga_Horaria).replace(",", ".")),
           date: yh(f.Data),
           expiry: yh(f.Vencimento, !0)
         });
@@ -790,7 +790,7 @@ function QD(e) {
           if(u.includes("Tags")) m.tags=seseTags(f.Tags);
           for(const [column,field] of [["Interno","internal"],["Externo","external"],["Homologado","homologated"]]) if(u.includes(column)) m[field]=seseBool(f[column]);
         }
-        if(n==="Treinamentos_Gerais") m={id:At(f.ID),title:At(f.Titulo),description:At(f.Descricao),hours:Number(At(f.Carga_Horaria).replace(",",".")),validityMonths:Number(At(f.Validade_Meses).replace(",",".")),tags:seseTags(f.Tags)};
+        if(n==="Treinamentos_Gerais") m={id:At(f.ID),title:At(f.Titulo),description:At(f.Descricao),hours:At(f.Carga_Horaria)===""?null:Number(At(f.Carga_Horaria).replace(",",".")),validityMonths:Number(At(f.Validade_Meses).replace(",",".")),tags:seseTags(f.Tags)};
         if(n==="Treinamentos_Departamentos") m={id:At(f.ID),departmentId:At(f.ID_Departamento),trainingId:At(f.ID_Treinamento_Geral)};
         if(n==="Afastamentos") m={id:At(f.ID),employeeId:At(f.ID_Colaborador),startDate:yh(f.Inicio),endDate:yh(f.Fim,true),reason:At(f.Observacao),recycled:seseBool(f.Reciclagem_Realizada),recycledDate:yh(f.Data_Reciclagem,true)};
         t[r[n]].push(m);
@@ -983,6 +983,7 @@ function seseFormatDuration(hours) {
 }
 function seseParseDuration(value, originalHours) {
   const text = String(value ?? '').trim();
+  if (!text) return null;
   if (!/^[0-9]{2,5}:[0-5][0-9]$/.test(text)) {
     throw Error('Informe o tempo no formato HH:MM, como 02:30. Os minutos devem estar entre 00 e 59.');
   }
@@ -995,6 +996,10 @@ function seseParseDuration(value, originalHours) {
     throw Error('O tempo total deve ser maior que 00:00 e não pode ultrapassar 10000:00.');
   }
   return totalMinutes / 60;
+}
+function seseDurationLabel(hours) {
+  const formatted = seseFormatDuration(hours);
+  return formatted ? formatted + ' h' : 'Não informado';
 }
 const seseDurationInput = {
   type: 'text',
@@ -1124,7 +1129,7 @@ function SeseCatalog({
                 children: item.description || 'Sem descrição.'
               })]
             }), /*#__PURE__*/_jsxs("td", {
-              children: [seseFormatDuration(item.hours), " h"]
+              children: [seseDurationLabel(item.hours)]
             }), /*#__PURE__*/_jsx("td", {
               children: item.validityMonths ? `${item.validityMonths} meses` : 'Sem validade definida'
             }), /*#__PURE__*/_jsx("td", {
@@ -1246,10 +1251,10 @@ function SeseCatalogEditor({
             })]
           }), /*#__PURE__*/_jsxs("div", {
             className: "form-grid",
-            children: [field('hours', 'Tempo total (HH:MM) *', 'text', true), field('validityMonths', 'Validade (meses, opcional)', 'number')]
+            children: [field('hours', 'Tempo total (HH:MM, opcional)', 'text'), field('validityMonths', 'Validade (meses, opcional)', 'number')]
           }), /*#__PURE__*/_jsx("p", {
             className: "form-hint",
-            children: "Ex.: 02:30 = 2 horas e 30 minutos. Deixe a validade em branco quando n\xE3o houver prazo."
+            children: "Ex.: 02:30 = 2 horas e 30 minutos. O tempo total pode ficar em branco. Deixe a validade em branco quando n\xE3o houver prazo."
           }), /*#__PURE__*/_jsxs("label", {
             className: "field",
             children: ["Tags de pesquisa", /*#__PURE__*/_jsx("input", {
@@ -1340,7 +1345,7 @@ function SesePicker({
             }), /*#__PURE__*/_jsx("p", {
               children: item.description
             }), /*#__PURE__*/_jsxs("small", {
-              children: [seseFormatDuration(item.hours), " h \xB7 ", item.validityMonths ? `Validade: ${item.validityMonths} meses` : 'Sem validade definida']
+              children: [seseDurationLabel(item.hours), " \xB7 ", item.validityMonths ? `Validade: ${item.validityMonths} meses` : 'Sem validade definida']
             }), /*#__PURE__*/_jsx(SeseTags, {
               tags: item.tags,
               onTag: setQuery
@@ -1462,7 +1467,7 @@ function SeseTrainingFields({
       tags: form.tags || []
     }), /*#__PURE__*/_jsxs("div", {
       className: "form-grid",
-      children: [field('hours', 'Tempo total (HH:MM) *', 'text', true), field('date', 'Data de realização *', 'date', true)]
+      children: [field('hours', 'Tempo total (HH:MM, opcional)', 'text'), field('date', 'Data de realização *', 'date', true)]
     }), field('expiry', 'Data de vencimento (opcional)', 'date'), /*#__PURE__*/_jsx("p", {
       className: "form-hint",
       children: "A validade do cadastro \xE9 aplicada \xE0 data de realiza\xE7\xE3o. O vencimento pode ser ajustado ou deixado em branco."
@@ -2030,7 +2035,7 @@ function Rh() {
             }), (0,A.jsx)(SeseChecks,{record:T}), (0,A.jsx)(SeseTags,{tags:T.tags||[]})]
           }), !M && (0, A.jsxs)(A.Fragment, {
             children: [(0, A.jsxs)(Lt, {
-              children: [seseFormatDuration(T.hours), " h"]
+              children: [seseDurationLabel(T.hours)]
             }), (0, A.jsx)(Lt, {
               children: Ql(T.date)
             })]
@@ -2414,7 +2419,7 @@ function Rh() {
                 }), (0, A.jsx)("strong", {
                   children: Na.length.toString().padStart(2, "0")
                 }), (0, A.jsxs)("p", {
-                  children: [seseFormatDuration(Na.reduce((S, M) => S + M.hours, 0)), " horas de aprendizado"]
+                  children: [seseFormatDuration(Na.reduce((S, M) => S + (M.hours || 0), 0)), " horas de aprendizado"]
                 }), (0, A.jsxs)("span", {
                   className: "metric-action",
                   children: ["Ver treinamentos ", (0, A.jsx)(fa, {
@@ -2877,7 +2882,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"TREINAMENTOS DO DEPARTAMENTO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar treinamento ao departamento "+S.name,onClick:()=>setSesePicker({kind:"department",id:S.id}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),e.departmentTrainings.filter(link=>link.departmentId===S.id).map(link=>{const item=e.trainingCatalog.find(record=>record.id===link.trainingId);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item.title}),(0,A.jsx)("small",{children:seseFormatDuration(item.hours)+" h · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida")}),(0,A.jsx)(SeseTags,{tags:item.tags})]}),(0,A.jsx)("button",{className:"icon-button danger","aria-label":"Remover vínculo de "+item.title,disabled:v,onClick:()=>seseUnlink(link.id),children:(0,A.jsx)(ul,{size:16})})]},link.id)}),!e.departmentTrainings.some(link=>link.departmentId===S.id)&&(0,A.jsx)("p",{className:"muted",children:"Use + para buscar um treinamento no cadastro geral."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"TREINAMENTOS DO DEPARTAMENTO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar treinamento ao departamento "+S.name,onClick:()=>setSesePicker({kind:"department",id:S.id}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),e.departmentTrainings.filter(link=>link.departmentId===S.id).map(link=>{const item=e.trainingCatalog.find(record=>record.id===link.trainingId);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item.title}),(0,A.jsx)("small",{children:seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida")}),(0,A.jsx)(SeseTags,{tags:item.tags})]}),(0,A.jsx)("button",{className:"icon-button danger","aria-label":"Remover vínculo de "+item.title,disabled:v,onClick:()=>seseUnlink(link.id),children:(0,A.jsx)(ul,{size:16})})]},link.id)}),!e.departmentTrainings.some(link=>link.departmentId===S.id)&&(0,A.jsx)("p",{className:"muted",children:"Use + para buscar um treinamento no cadastro geral."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO DEPARTAMENTO"
               }), (0, A.jsxs)("div", {
@@ -3179,7 +3184,7 @@ function Rh() {
             }), (0, A.jsx)("p", {
               children: S.description || "Sem descri\xE7\xE3o."
             }), (0,A.jsx)(SeseChecks,{record:S}), (0,A.jsx)(SeseTags,{tags:S.tags||[]}), (0, A.jsxs)("small", {
-              children: [seseFormatDuration(S.hours), " h \xB7 Realizado em ", Ql(S.date), " \xB7 Vencimento: ", Ql(S.expiry)]
+              children: [seseDurationLabel(S.hours), " \xB7 Realizado em ", Ql(S.date), " \xB7 Vencimento: ", Ql(S.expiry)]
             }), (0, A.jsxs)("button", {
               className: "text-link",
               onClick: () => {
