@@ -974,6 +974,37 @@ function seseId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
 }
 // SESE: catálogo compartilhado, pesquisa por tags e vínculos de treinamento.
+// Durações são exibidas em HH:MM e continuam armazenadas em horas numéricas.
+function seseFormatDuration(hours) {
+  if (hours === '' || hours == null) return '';
+  const minutes = Math.round(Number(hours) * 60);
+  if (!Number.isSafeInteger(minutes) || minutes < 0) return '';
+  return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+}
+function seseParseDuration(value, originalHours) {
+  const text = String(value ?? '').trim();
+  if (!/^[0-9]{2,5}:[0-5][0-9]$/.test(text)) {
+    throw Error('Informe o tempo no formato HH:MM, como 02:30. Os minutos devem estar entre 00 e 59.');
+  }
+  const [hours, minutes] = text.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  // Preserva a precisão de registros antigos quando a duração não foi alterada.
+  if (typeof originalHours === 'number' && originalHours > 0 && originalHours <= 10000 &&
+      seseFormatDuration(originalHours) === seseFormatDuration(totalMinutes / 60)) return originalHours;
+  if (totalMinutes <= 0 || totalMinutes > 600000) {
+    throw Error('O tempo total deve ser maior que 00:00 e não pode ultrapassar 10000:00.');
+  }
+  return totalMinutes / 60;
+}
+const seseDurationInput = {
+  type: 'text',
+  inputMode: 'text',
+  placeholder: '02:30',
+  pattern: '[0-9]{2,5}:[0-5][0-9]',
+  maxLength: 8,
+  title: 'Use HH:MM. Ex.: 02:30 para 2 horas e 30 minutos. Para durações acima de 24 horas, use 40:00.',
+  autoComplete: 'off'
+};
 function seseText(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 }
@@ -1093,7 +1124,7 @@ function SeseCatalog({
                 children: item.description || 'Sem descrição.'
               })]
             }), /*#__PURE__*/_jsxs("td", {
-              children: [item.hours.toLocaleString('pt-BR'), " h"]
+              children: [seseFormatDuration(item.hours), " h"]
             }), /*#__PURE__*/_jsx("td", {
               children: item.validityMonths ? `${item.validityMonths} meses` : 'Sem validade definida'
             }), /*#__PURE__*/_jsx("td", {
@@ -1148,7 +1179,7 @@ function SeseCatalogEditor({
     ...item,
     title: item.title || '',
     description: item.description || '',
-    hours: item.hours || '',
+    hours: seseFormatDuration(item.hours),
     validityMonths: item.validityMonths || '',
     tags: (item.tags || []).join(', ')
   });
@@ -1159,9 +1190,10 @@ function SeseCatalogEditor({
       type: type,
       required: required,
       maxLength: name === 'title' ? 140 : undefined,
-      min: name === 'hours' ? '0.01' : '1',
-      max: name === 'hours' ? '10000' : name === 'validityMonths' ? '1200' : undefined,
-      step: name === 'hours' ? '0.01' : '1',
+      min: type === 'number' ? '1' : undefined,
+      max: name === 'validityMonths' ? '1200' : undefined,
+      step: type === 'number' ? '1' : undefined,
+      ...(name === 'hours' ? seseDurationInput : {}),
       value: form[name],
       onChange: event => setForm({
         ...form,
@@ -1177,7 +1209,7 @@ function SeseCatalogEditor({
         ...form,
         title: form.title.trim(),
         description: form.description.trim(),
-        hours: Number(form.hours),
+        hours: seseParseDuration(form.hours, item.hours),
         validityMonths: form.validityMonths === '' ? 0 : Number(form.validityMonths),
         tags: seseTags(form.tags)
       });
@@ -1214,10 +1246,10 @@ function SeseCatalogEditor({
             })]
           }), /*#__PURE__*/_jsxs("div", {
             className: "form-grid",
-            children: [field('hours', 'Tempo total (horas) *', 'number', true), field('validityMonths', 'Validade (meses, opcional)', 'number')]
+            children: [field('hours', 'Tempo total (HH:MM) *', 'text', true), field('validityMonths', 'Validade (meses, opcional)', 'number')]
           }), /*#__PURE__*/_jsx("p", {
             className: "form-hint",
-            children: "Ex.: 1,5 h = 1 hora e 30 minutos. Deixe a validade em branco quando n\xE3o houver prazo."
+            children: "Ex.: 02:30 = 2 horas e 30 minutos. Deixe a validade em branco quando n\xE3o houver prazo."
           }), /*#__PURE__*/_jsxs("label", {
             className: "field",
             children: ["Tags de pesquisa", /*#__PURE__*/_jsx("input", {
@@ -1308,7 +1340,7 @@ function SesePicker({
             }), /*#__PURE__*/_jsx("p", {
               children: item.description
             }), /*#__PURE__*/_jsxs("small", {
-              children: [item.hours.toLocaleString('pt-BR'), " h \xB7 ", item.validityMonths ? `Validade: ${item.validityMonths} meses` : 'Sem validade definida']
+              children: [seseFormatDuration(item.hours), " h \xB7 ", item.validityMonths ? `Validade: ${item.validityMonths} meses` : 'Sem validade definida']
             }), /*#__PURE__*/_jsx(SeseTags, {
               tags: item.tags,
               onTag: setQuery
@@ -1382,6 +1414,7 @@ function SeseTrainingFields({
       max: name === 'date' ? Xo() : undefined,
       step: type === 'number' ? '0.01' : undefined,
       maxLength: name === 'title' ? 140 : undefined,
+      ...(name === 'hours' ? seseDurationInput : {}),
       onChange: event => setForm(previous => ({
         ...previous,
         [name]: event.target.value,
@@ -1429,7 +1462,7 @@ function SeseTrainingFields({
       tags: form.tags || []
     }), /*#__PURE__*/_jsxs("div", {
       className: "form-grid",
-      children: [field('hours', 'Tempo total (horas) *', 'number', true), field('date', 'Data de realização *', 'date', true)]
+      children: [field('hours', 'Tempo total (HH:MM) *', 'text', true), field('date', 'Data de realização *', 'date', true)]
     }), field('expiry', 'Data de vencimento (opcional)', 'date'), /*#__PURE__*/_jsx("p", {
       className: "form-hint",
       children: "A validade do cadastro \xE9 aplicada \xE0 data de realiza\xE7\xE3o. O vencimento pode ser ajustado ou deixado em branco."
@@ -1782,7 +1815,7 @@ function Rh() {
       await Ct(next); setSesePicker(null);
     } else {
       const employeeId=sesePicker.id||e.employees[0]?.id||"";
-      setSesePicker(null); ot("training",undefined,{employeeId,templateId:item.id,title:item.title,description:item.description,hours:String(item.hours),tags:item.tags,expiry:seseExpiry(Xo(),item.validityMonths)});
+      setSesePicker(null); ot("training",undefined,{employeeId,templateId:item.id,title:item.title,description:item.description,hours:seseFormatDuration(item.hours),tags:item.tags,expiry:seseExpiry(Xo(),item.validityMonths)});
     }
   }
   async function seseUnlink(linkId) {try {const next=structuredClone(e);next.departmentTrainings=next.departmentTrainings.filter(item=>item.id!==linkId);await Ct(next);}catch(err){El.error(err.message);}}
@@ -1804,6 +1837,7 @@ function Rh() {
       Me = ne ? e[ne].find(It => It.id === M) : null,
       st = {};
     if (Me) for (let [It, _] of Object.entries(Me)) st[It] = (typeof _ === "boolean" || Array.isArray(_)) ? _ : String(_);
+    if (S === "training" && Me) st.hours = seseFormatDuration(Me.hours);
     H({
       departmentId: C !== "all" ? C : e.departments[0]?.id || "",
       employeeId: e.employees[0]?.id || "",
@@ -1867,7 +1901,7 @@ function Rh() {
               employeeId: L.employeeId,
               title: L.title.trim(),
               description: L.description.trim(),
-              hours: Number(L.hours),
+              hours: seseParseDuration(L.hours, b.id ? e.trainings.find(item => item.id === b.id)?.hours : e.trainingCatalog.find(item => item.id === L.templateId)?.hours),
               date: L.date,
               expiry: L.expiry,templateId:L.templateId||"",tags:L.tags||[],internal:!!L.internal,external:!!L.external,homologated:!!L.homologated
             };
@@ -1996,7 +2030,7 @@ function Rh() {
             }), (0,A.jsx)(SeseChecks,{record:T}), (0,A.jsx)(SeseTags,{tags:T.tags||[]})]
           }), !M && (0, A.jsxs)(A.Fragment, {
             children: [(0, A.jsxs)(Lt, {
-              children: [T.hours.toLocaleString("pt-BR"), " h"]
+              children: [seseFormatDuration(T.hours), " h"]
             }), (0, A.jsx)(Lt, {
               children: Ql(T.date)
             })]
@@ -2380,7 +2414,7 @@ function Rh() {
                 }), (0, A.jsx)("strong", {
                   children: Na.length.toString().padStart(2, "0")
                 }), (0, A.jsxs)("p", {
-                  children: [Na.reduce((S, M) => S + M.hours, 0).toLocaleString("pt-BR"), " horas de aprendizado"]
+                  children: [seseFormatDuration(Na.reduce((S, M) => S + M.hours, 0)), " horas de aprendizado"]
                 }), (0, A.jsxs)("span", {
                   className: "metric-action",
                   children: ["Ver treinamentos ", (0, A.jsx)(fa, {
@@ -2843,7 +2877,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"TREINAMENTOS DO DEPARTAMENTO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar treinamento ao departamento "+S.name,onClick:()=>setSesePicker({kind:"department",id:S.id}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),e.departmentTrainings.filter(link=>link.departmentId===S.id).map(link=>{const item=e.trainingCatalog.find(record=>record.id===link.trainingId);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item.title}),(0,A.jsx)("small",{children:item.hours+" h · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida")}),(0,A.jsx)(SeseTags,{tags:item.tags})]}),(0,A.jsx)("button",{className:"icon-button danger","aria-label":"Remover vínculo de "+item.title,disabled:v,onClick:()=>seseUnlink(link.id),children:(0,A.jsx)(ul,{size:16})})]},link.id)}),!e.departmentTrainings.some(link=>link.departmentId===S.id)&&(0,A.jsx)("p",{className:"muted",children:"Use + para buscar um treinamento no cadastro geral."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"TREINAMENTOS DO DEPARTAMENTO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar treinamento ao departamento "+S.name,onClick:()=>setSesePicker({kind:"department",id:S.id}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),e.departmentTrainings.filter(link=>link.departmentId===S.id).map(link=>{const item=e.trainingCatalog.find(record=>record.id===link.trainingId);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item.title}),(0,A.jsx)("small",{children:seseFormatDuration(item.hours)+" h · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida")}),(0,A.jsx)(SeseTags,{tags:item.tags})]}),(0,A.jsx)("button",{className:"icon-button danger","aria-label":"Remover vínculo de "+item.title,disabled:v,onClick:()=>seseUnlink(link.id),children:(0,A.jsx)(ul,{size:16})})]},link.id)}),!e.departmentTrainings.some(link=>link.departmentId===S.id)&&(0,A.jsx)("p",{className:"muted",children:"Use + para buscar um treinamento no cadastro geral."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO DEPARTAMENTO"
               }), (0, A.jsxs)("div", {
@@ -3145,7 +3179,7 @@ function Rh() {
             }), (0, A.jsx)("p", {
               children: S.description || "Sem descri\xE7\xE3o."
             }), (0,A.jsx)(SeseChecks,{record:S}), (0,A.jsx)(SeseTags,{tags:S.tags||[]}), (0, A.jsxs)("small", {
-              children: [S.hours, " h \xB7 Realizado em ", Ql(S.date), " \xB7 Vencimento: ", Ql(S.expiry)]
+              children: [seseFormatDuration(S.hours), " h \xB7 Realizado em ", Ql(S.date), " \xB7 Vencimento: ", Ql(S.expiry)]
             }), (0, A.jsxs)("button", {
               className: "text-link",
               onClick: () => {
