@@ -732,7 +732,7 @@ function UD(e, t = !1) {
       Colaboradores: a.employees.map(s => [s.id, s.name, s.departmentId, s.role, (s.prerequisiteTrainingIds || []).join(";")]),
       Avaliacoes: a.evaluations.map(s => [s.employeeId, s.taskId, s.level, s.date]),
       Treinamentos: a.trainings.map(s => [s.id, s.employeeId, s.title, s.description, s.hours, s.date, s.expiry,s.templateId||"",(s.tags||[]).join(", "),s.internal?"Sim":"Não",s.external?"Sim":"Não",s.homologated?"Sim":"Não"]),
-      Treinamentos_Gerais:a.trainingCatalog.map(s=>[s.id,s.title,s.description,s.hours,s.validityMonths||"",s.tags.join(", ")]),
+      Treinamentos_Gerais:a.trainingCatalog.map(s=>[s.id,s.title,s.description,s.hours,s.validityMonths||"",(s.tags||[]).join(", ")]),
       Treinamentos_Departamentos:a.departmentTrainings.map(s=>[s.id,s.departmentId,s.trainingId]),
       Afastamentos:a.absences.map(s=>[s.id,s.employeeId,s.startDate,s.endDate,s.reason,s.recycled?"Sim":"Não",s.recycledDate])
     };
