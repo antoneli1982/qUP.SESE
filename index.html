@@ -790,6 +790,79 @@ function yh(e, t = !1) {
     o = a.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   return o && (a = `${o[3]}-${o[2].padStart(2, "0")}-${o[1].padStart(2, "0")}`), a;
 }
+
+function seseMoDeptId(value) {
+  const name = At(value);
+  if (!name) return "MO_DEP_SEM_CARTA";
+  if (/^(N\/A|NA)$/i.test(name)) return "MO_DEP_NA";
+  const numbered = name.match(/^\s*(\d+(?:\.\d+)?)/);
+  if (numbered) return "MO_DEP_CARTA_" + numbered[1].replace(".", "_");
+  const slug = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase();
+  return "MO_DEP_" + (slug.slice(0, 40) || "SEM_CARTA");
+}
+function seseConvertMOWorkbook(workbook) {
+  const sourceName = Object.keys(workbook.Sheets).find(name => /^MO\s+\d{2}-\d{4}$/i.test(name)) || (workbook.Sheets["MO 09-2026"] ? "MO 09-2026" : "");
+  if (!sourceName) return workbook;
+  const source = workbook.Sheets[sourceName];
+  const rows = XLSX.utils.sheet_to_json(source, { header: 1, defval: "", raw: true });
+  const headerIndex = rows.findIndex(row => {
+    const values = (row || []).map(At);
+    return values.includes("Nome") && values.includes("Carta de Versatilidade");
+  });
+  if (headerIndex < 0) throw Error(sourceName + ": cabeçalho da mão de obra não encontrado.");
+  const headers = (rows[headerIndex] || []).map(At);
+  const column = name => headers.indexOf(name);
+  const nameCol = column("Nome");
+  const matriculaCol = column("Matrícula");
+  const chapaCol = column("Chapa VW");
+  const cargoCol = column("Cargo Atual");
+  const cartaCol = column("Carta de Versatilidade");
+  if (nameCol < 0 || cartaCol < 0) throw Error(sourceName + ": colunas Nome e Carta de Versatilidade são obrigatórias.");
+
+  const departments = new Map();
+  const addDepartment = raw => {
+    const name = At(raw) || "SEM CARTA";
+    const id = seseMoDeptId(name);
+    if (!departments.has(id)) departments.set(id, [id, name, name === "SEM CARTA" ? "Colaboradores sem Carta de Versatilidade preenchida na base de mão de obra." : "Grupo importado da coluna Carta de Versatilidade.", ""]);
+    return id;
+  };
+
+  const db = workbook.Sheets["DB"];
+  if (db) {
+    const dbRows = XLSX.utils.sheet_to_json(db, { header: 1, defval: "", raw: true });
+    const dbHeader = (dbRows[0] || []).map(At);
+    const dbCartaCol = dbHeader.indexOf("Carta de Versatilidade");
+    if (dbCartaCol >= 0) for (let i = 1; i < dbRows.length; i++) if (At(dbRows[i]?.[dbCartaCol])) addDepartment(dbRows[i][dbCartaCol]);
+  }
+
+  const employees = [];
+  const seenEmployeeIds = new Set();
+  for (let i = headerIndex + 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const name = At(row[nameCol]);
+    if (!name) continue;
+    const matricula = matriculaCol >= 0 ? At(row[matriculaCol]) : "";
+    const chapa = chapaCol >= 0 ? At(row[chapaCol]) : "";
+    const id = matricula ? "MAT_" + matricula : chapa ? "CHAPA_" + chapa : "MO_LINHA_" + (i + 1);
+    if (seenEmployeeIds.has(id)) throw Error(sourceName + ": ID de colaborador repetido " + id + ".");
+    seenEmployeeIds.add(id);
+    const departmentId = addDepartment(cartaCol >= 0 ? row[cartaCol] : "");
+    employees.push([id, name, departmentId, cargoCol >= 0 ? At(row[cargoCol]) : "", ""]);
+  }
+  if (!employees.length) throw Error(sourceName + ": nenhum colaborador válido encontrado.");
+
+  const converted = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(converted, XLSX.utils.aoa_to_sheet([
+    ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito"],
+    ...departments.values()
+  ]), "Departamentos");
+  XLSX.utils.book_append_sheet(converted, XLSX.utils.aoa_to_sheet([
+    ["ID", "Nome", "ID_Departamento", "Cargo", "Cursos_Pre_Requisito"],
+    ...employees
+  ]), "Colaboradores");
+  return converted;
+}
+
 function QD(e) {
   let t = Bn(),
     a = !1,
@@ -882,12 +955,14 @@ function QD(e) {
 async function dM(e) {
   if (e.size > 10 * 1024 * 1024) throw Error("Selecione um arquivo Excel com at\xE9 10 MB.");
   if (!/\.xlsx?$/i.test(e.name)) throw Error("Selecione um arquivo .xlsx ou .xls.");
-  let t = await e.arrayBuffer();
-  return QD(XLSX.read(t, {
-    type: "array",
-    cellDates: !0,
-    sheetRows: 20003
-  }));
+  let t = await e.arrayBuffer(),
+    a = XLSX.read(t, {
+      type: "array",
+      cellDates: !0,
+      sheetRows: 20003
+    });
+  if (Object.keys(a.Sheets).some(n => /^MO\s+\d{2}-\d{4}$/i.test(n)) && !Object.keys(cM).some(n => a.Sheets[n])) a = seseConvertMOWorkbook(a);
+  return QD(a);
 }
 function AM(e, t, a) {
   let o = a ? Bn() : structuredClone(e);
