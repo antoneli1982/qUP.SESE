@@ -469,8 +469,14 @@ var Br = We.string().min(1).max(100),
       name: ZA,
       departmentId: Br,
       role: We.string().max(140),
+      registration: We.string().trim().max(100).default(""),
+      vwBadge: We.string().trim().max(100).default(""),
+      admissionDate: We.union([Eh, We.literal("")]).default(""),
+      shift: We.string().trim().max(140).default(""),
+      versatility: We.string().trim().max(140).default(""),
+      responsible: We.string().trim().max(140).default(""),
       prerequisiteTrainingIds: We.array(Br).max(1000).default([])
-    })).max(2e3),
+    })).max(2e3).transform(items => items.sort((a,b) => a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"}))),
     tasks: We.array(We.object({
       id: Br,
       name: ZA,
@@ -716,7 +722,7 @@ function uM() {
 var cM = {
   Departamentos: ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito"],
   Atividades: ["ID", "ID_Departamento", "Nome", "Descricao"],
-  Colaboradores: ["ID", "Nome", "ID_Departamento", "Cargo", "Cursos_Pre_Requisito"],
+  Colaboradores: ["Matrícula", "Chapa Volkswagen", "Nome", "Admissão", "Cargo Atual", "Turno", "Carta de Versatilidade", "Responsável", "ID", "ID_Departamento", "Cursos_Pre_Requisito"],
   Avaliacoes: ["ID_Colaborador", "ID_Atividade", "Nivel_Percentual", "Data"],
   Treinamentos: ["ID", "ID_Colaborador", "Titulo", "Descricao", "Carga_Horaria", "Data", "Vencimento", "ID_Treinamento_Geral", "Tags", "Interno", "Externo", "Homologado"],
   Treinamentos_Gerais:["ID","Titulo","Descricao","Carga_Horaria","Validade_Meses","Tags"],
@@ -729,7 +735,7 @@ function UD(e, t = !1) {
     r = {
       Departamentos: a.departments.map(s => [s.id, s.name, s.description, (s.prerequisiteTrainingIds || []).join(";")]),
       Atividades: a.tasks.map(s => [s.id, s.departmentId, s.name, s.description]),
-      Colaboradores: a.employees.map(s => [s.id, s.name, s.departmentId, s.role, (s.prerequisiteTrainingIds || []).join(";")]),
+      Colaboradores: [...a.employees].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"})).map(s => [s.registration, s.vwBadge, s.name, s.admissionDate, s.role, s.shift, s.versatility, s.responsible, s.id, s.departmentId, (s.prerequisiteTrainingIds || []).join(";")]),
       Avaliacoes: a.evaluations.map(s => [s.employeeId, s.taskId, s.level, s.date]),
       Treinamentos: a.trainings.map(s => [s.id, s.employeeId, s.title, s.description, s.hours, s.date, s.expiry,s.templateId||"",(s.tags||[]).join(", "),s.internal?"Sim":"Não",s.external?"Sim":"Não",s.homologated?"Sim":"Não"]),
       Treinamentos_Gerais:a.trainingCatalog.map(s=>[s.id,s.title,s.description,s.hours,s.validityMonths||"",(s.tags||[]).join(", ")]),
@@ -737,11 +743,11 @@ function UD(e, t = !1) {
       Afastamentos:a.absences.map(s=>[s.id,s.employeeId,s.startDate,s.endDate,s.reason,s.recycled?"Sim":"Não",s.recycledDate])
     };
   for (let [s, i] of Object.entries(cM)) {
-    let u = XLSX.utils.aoa_to_sheet([i, ...r[s]]);
+    let u = XLSX.utils.aoa_to_sheet(s === "Colaboradores" ? [["Colaboradores — as duas primeiras linhas são ignoradas"], ["Preencha a partir da linha 4; a linha 3 contém os títulos. Preserve as colunas de vínculo ao reimportar."], i, ...r[s]] : [i, ...r[s]]);
     u["!cols"] = i.map(d => ({
       wch: d === "Descricao" ? 55 : d === "ID" || d.startsWith("ID_") ? 38 : 25
     })), u["!autofilter"] = {
-      ref: u["!ref"]
+      ref: s === "Colaboradores" ? u["!ref"].replace(/^A1:/,"A3:") : u["!ref"]
     }, XLSX.utils.book_append_sheet(o, u, s);
   }
   if (!t) {
@@ -754,7 +760,7 @@ function UD(e, t = !1) {
       ref: i["!ref"]
     }, XLSX.utils.book_append_sheet(o, i, "Matriz_Consulta");
   }
-  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por departamento."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas e das colunas da primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: ID, Nome, ID_Departamento. Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
+  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por departamento."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das oito colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula ou Chapa Volkswagen (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
     l = XLSX.utils.aoa_to_sheet(n);
   return l["!cols"] = [{
     wch: 28
@@ -800,67 +806,40 @@ function seseMoDeptId(value) {
   const slug = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase();
   return "MO_DEP_" + (slug.slice(0, 40) || "SEM_CARTA");
 }
-function seseConvertMOWorkbook(workbook) {
-  const sourceName = Object.keys(workbook.Sheets).find(name => /^MO\s+\d{2}-\d{4}$/i.test(name)) || (workbook.Sheets["MO 09-2026"] ? "MO 09-2026" : "");
-  if (!sourceName) return workbook;
-  const source = workbook.Sheets[sourceName];
-  const rows = XLSX.utils.sheet_to_json(source, { header: 1, defval: "", raw: true });
-  const headerIndex = rows.findIndex(row => {
-    const values = (row || []).map(At);
-    return values.includes("Nome") && values.includes("Carta de Versatilidade");
-  });
-  if (headerIndex < 0) throw Error(sourceName + ": cabeçalho da mão de obra não encontrado.");
-  const headers = (rows[headerIndex] || []).map(At);
-  const column = name => headers.indexOf(name);
-  const nameCol = column("Nome");
-  const matriculaCol = column("Matrícula");
-  const chapaCol = column("Chapa VW");
-  const cargoCol = column("Cargo Atual");
-  const cartaCol = column("Carta de Versatilidade");
-  if (nameCol < 0 || cartaCol < 0) throw Error(sourceName + ": colunas Nome e Carta de Versatilidade são obrigatórias.");
-
-  const departments = new Map();
-  const addDepartment = raw => {
-    const name = At(raw) || "SEM CARTA";
-    const id = seseMoDeptId(name);
-    if (!departments.has(id)) departments.set(id, [id, name, name === "SEM CARTA" ? "Colaboradores sem Carta de Versatilidade preenchida na base de mão de obra." : "Grupo importado da coluna Carta de Versatilidade.", ""]);
-    return id;
-  };
-
-  const db = workbook.Sheets["DB"];
-  if (db) {
-    const dbRows = XLSX.utils.sheet_to_json(db, { header: 1, defval: "", raw: true });
-    const dbHeader = (dbRows[0] || []).map(At);
-    const dbCartaCol = dbHeader.indexOf("Carta de Versatilidade");
-    if (dbCartaCol >= 0) for (let i = 1; i < dbRows.length; i++) if (At(dbRows[i]?.[dbCartaCol])) addDepartment(dbRows[i][dbCartaCol]);
+// The first two physical worksheet rows are never read, including their formulas.
+function seseReadEmployees(sheet, sheetName) {
+  if (!sheet["!ref"]) return [];
+  const range = XLSX.utils.decode_range(sheet["!ref"]);
+  if (range.e.r > 20001 || range.e.c > 50) throw Error(sheetName + ": a planilha excede o limite de linhas ou colunas.");
+  if (range.e.r < 2) return [];
+  const normalize = value => At(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[_\s]+/g," ");
+  const columns = cM.Colaboradores;
+  const aliases = {"chapa vw":"chapa volkswagen", "chapa volkswagens":"chapa volkswagen", "cargo":"cargo atual"};
+  const canonical = value => aliases[normalize(value)] || normalize(value);
+  const rows = XLSX.utils.sheet_to_json(sheet, {header:1,defval:"",raw:true,range:{s:{r:2,c:0},e:range.e},blankrows:true});
+  const header = (rows[0] || []).map(canonical);
+  const hasHeader = header.includes("nome") && header.includes("matricula");
+  const headers = hasHeader ? header : columns.slice(0,8).map(canonical);
+  if(hasHeader) for(const name of columns.slice(0,8)) if(!headers.includes(canonical(name))) throw Error(sheetName + ": coluna ausente: " + name);
+  const records = [];
+  for(let index=hasHeader?1:0;index<rows.length;index++) {
+    const row=rows[index];
+    if(row.every(value=>value===""||value==null)) continue;
+    const get = name => row[headers.indexOf(canonical(name))] ?? "";
+    for(let col=0;col<=range.e.c;col++) if(sheet[XLSX.utils.encode_cell({r:index+2,c:col})]?.f) throw Error(sheetName + ", linha " + (index+3) + ": substitua fórmulas por valores.");
+    if(!At(get("Nome"))) throw Error(sheetName + ", linha " + (index+3) + ": informe o Nome.");
+    const registration=At(get("Matrícula")), vwBadge=At(get("Chapa Volkswagen"));
+    const formatted = name => {
+      const cell=sheet[XLSX.utils.encode_cell({r:index+2,c:headers.indexOf(canonical(name))})];
+      return cell && cell.t === "n" ? XLSX.utils.format_cell(cell) : At(get(name));
+    };
+    const id=At(get("ID")) || (registration ? "MAT_"+formatted("Matrícula") : vwBadge ? "CHAPA_"+formatted("Chapa Volkswagen") : "");
+    if(!id) throw Error(sheetName + ", linha " + (index+3) + ": informe Matrícula ou Chapa Volkswagen.");
+    records.push({id,registration:formatted("Matrícula"),vwBadge:formatted("Chapa Volkswagen"),name:At(get("Nome")),admissionDate:yh(get("Admissão"),true),role:At(get("Cargo Atual")),shift:At(get("Turno")),versatility:At(get("Carta de Versatilidade")),responsible:At(get("Responsável")),
+      ...(At(get("ID_Departamento")) ? {departmentId:At(get("ID_Departamento"))} : {}),
+      ...(headers.includes(canonical("Cursos_Pre_Requisito")) ? {prerequisiteTrainingIds:seseIdList(get("Cursos_Pre_Requisito"))} : {})});
   }
-
-  const employees = [];
-  const seenEmployeeIds = new Set();
-  for (let i = headerIndex + 1; i < rows.length; i++) {
-    const row = rows[i] || [];
-    const name = At(row[nameCol]);
-    if (!name) continue;
-    const matricula = matriculaCol >= 0 ? At(row[matriculaCol]) : "";
-    const chapa = chapaCol >= 0 ? At(row[chapaCol]) : "";
-    const id = matricula ? "MAT_" + matricula : chapa ? "CHAPA_" + chapa : "MO_LINHA_" + (i + 1);
-    if (seenEmployeeIds.has(id)) throw Error(sourceName + ": ID de colaborador repetido " + id + ".");
-    seenEmployeeIds.add(id);
-    const departmentId = addDepartment(cartaCol >= 0 ? row[cartaCol] : "");
-    employees.push([id, name, departmentId, cargoCol >= 0 ? At(row[cargoCol]) : "", ""]);
-  }
-  if (!employees.length) throw Error(sourceName + ": nenhum colaborador válido encontrado.");
-
-  const converted = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(converted, XLSX.utils.aoa_to_sheet([
-    ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito"],
-    ...departments.values()
-  ]), "Departamentos");
-  XLSX.utils.book_append_sheet(converted, XLSX.utils.aoa_to_sheet([
-    ["ID", "Nome", "ID_Departamento", "Cargo", "Cursos_Pre_Requisito"],
-    ...employees
-  ]), "Colaboradores");
-  return converted;
+  return records;
 }
 
 function QD(e) {
@@ -877,6 +856,7 @@ function QD(e) {
   for (let [n, l] of Object.entries(cM)) {
     let s = e.Sheets[n];
     if (!s) continue;
+    if(n === "Colaboradores") { a = true; t.employees = seseReadEmployees(s,n); continue; }
     if (a = !0, s["!ref"]) {
       let c = XLSX.utils.decode_range(s["!ref"]);
       if (c.e.r > 20001 || c.e.c > 50) throw Error(`A aba ${n} excede o limite de linhas ou colunas.`);
@@ -947,6 +927,10 @@ function QD(e) {
       }
     }
   }
+  if(!a) {
+    const sourceName = Object.keys(e.Sheets).find(name=>/^MO\s+\d{2}-\d{4}$/i.test(name)) || (e.SheetNames.length===1 ? e.SheetNames[0] : "");
+    if(sourceName) { t.employees=seseReadEmployees(e.Sheets[sourceName],sourceName); a=true; }
+  }
   if (!a) throw Error("Nenhuma aba reconhecida. Baixe o modelo Excel e mantenha os nomes das abas.");
   if (o.length) throw Error(o.slice(0, 10).join(`
 `));
@@ -961,11 +945,36 @@ async function dM(e) {
       cellDates: !0,
       sheetRows: 20003
     });
-  if (Object.keys(a.Sheets).some(n => /^MO\s+\d{2}-\d{4}$/i.test(n)) && !Object.keys(cM).some(n => a.Sheets[n])) a = seseConvertMOWorkbook(a);
   return QD(a);
 }
 function AM(e, t, a) {
   let o = a ? Bn() : structuredClone(e);
+  t = structuredClone(t);
+  const usedEmployeeIds = new Set();
+  const registrations = new Set(), badges = new Set();
+  t.employees = t.employees.map(record => {
+    if((record.registration && registrations.has(record.registration)) || (record.vwBadge && badges.has(record.vwBadge))) throw Error("Matrícula ou chapa repetida na planilha: " + record.name);
+    if(record.registration) registrations.add(record.registration);
+    if(record.vwBadge) badges.add(record.vwBadge);
+    const matches = e.employees.filter(item => item.id===record.id || (record.registration && (item.registration===record.registration || item.id==="MAT_"+record.registration)) || (record.vwBadge && item.vwBadge===record.vwBadge));
+    if(matches.length>1) throw Error("Matrícula ou chapa vinculada a mais de um colaborador: " + record.name);
+    const existing=matches[0];
+    const id=existing?.id || record.id;
+    if(usedEmployeeIds.has(id)) throw Error("Colaborador duplicado na planilha: " + record.name);
+    usedEmployeeIds.add(id);
+    let departmentId=record.departmentId || (!a && existing?.departmentId);
+    if(!departmentId) {
+      const name=record.versatility || "SEM CARTA";
+      const departments=[...o.departments,...t.departments];
+      departmentId=departments.find(item=>item.name.localeCompare(name,"pt-BR",{sensitivity:"base"})===0)?.id;
+      if(!departmentId) {
+        departmentId=seseMoDeptId(name);
+        if(departments.some(item=>item.id===departmentId)) departmentId=seseId();
+        t.departments.push({id:departmentId,name,description:"",prerequisiteTrainingIds:[]});
+      }
+    }
+    return {...record,id,departmentId};
+  });
   for (let s of ["departments", "employees", "tasks", "trainings", "trainingCatalog", "departmentTrainings", "absences"]) {
     let i = new Set();
     for (let d of t[s]) {
@@ -2077,6 +2086,9 @@ function Rh() {
             id: T,
             name: L.name.trim(),
             role: L.role.trim(),
+            registration: (L.registration || "").trim(), vwBadge: (L.vwBadge || "").trim(),
+            admissionDate: L.admissionDate || "", shift: (L.shift || "").trim(),
+            versatility: (L.versatility || "").trim(), responsible: (L.responsible || "").trim(),
             departmentId: L.departmentId,
             prerequisiteTrainingIds: [...new Set((L.prerequisiteTrainingIds || []).filter(Boolean))]
           }), ne === "training") {
@@ -2091,6 +2103,7 @@ function Rh() {
               expiry: L.expiry,templateId:L.templateId||"",tags:L.tags||[],internal:!!L.internal,external:!!L.external,homologated:!!L.homologated
             };
           }
+          if(ne === "employee" && e.employees.some(item=>item.id!==T&&((Me.registration&&(item.registration===Me.registration||item.id==="MAT_"+Me.registration))||(Me.vwBadge&&(item.vwBadge===Me.vwBadge||item.id==="CHAPA_"+Me.vwBadge))))) throw Error("Já existe um colaborador com essa matrícula ou chapa Volkswagen.");
           let st = Mh[ne];
           M[st] = [...M[st].filter(It => It.id !== T), Me];
           if (ne === "department") {
@@ -2984,15 +2997,7 @@ function Rh() {
             }), Fl.length ? (0, A.jsxs)($u, {
               children: [(0, A.jsx)(ec, {
                 children: (0, A.jsxs)(wr, {
-                  children: [(0, A.jsx)(Rt, {
-                    children: "Colaborador"
-                  }), (0, A.jsx)(Rt, {
-                    children: "Departamento"
-                  }), (0, A.jsx)(Rt, {
-                    children: "Compet\xEAncias aptas"
-                  }), (0, A.jsx)(Rt, {
-                    children: "Treinamentos"
-                  }), (0, A.jsx)(Rt, {
+                  children: [...["Matrícula", "Chapa Volkswagen", "Nome", "Admissão", "Cargo Atual", "Turno", "Carta de Versatilidade", "Responsável"].map(title=>(0,A.jsx)(Rt,{children:title},title)), (0,A.jsx)(Rt,{
                     children: (0, A.jsx)("span", {
                       className: "sr-only",
                       children: "A\xE7\xF5es"
@@ -3001,10 +3006,8 @@ function Rh() {
                 })
               }), (0, A.jsx)(tc, {
                 children: Fl.map(S => {
-                  let M = e.tasks.filter(ne => ne.departmentId === S.departmentId),
-                    T = M.filter(ne => ya(e, S.id, ne.id) === 100).length;
                   return (0, A.jsxs)(wr, {
-                    children: [(0, A.jsx)(Lt, {
+                    children: [(0,A.jsx)(Lt,{children:S.registration||"—"}),(0,A.jsx)(Lt,{children:S.vwBadge||"—"}),(0, A.jsx)(Lt, {
                       children: (0, A.jsxs)("button", {
                         className: "person-cell",
                         onClick: () => Te(S.id),
@@ -3013,27 +3016,10 @@ function Rh() {
                         }), (0, A.jsxs)("span", {
                           children: [(0, A.jsx)("strong", {
                             children: S.name
-                          }), (0, A.jsx)("small", {
-                            children: S.role || "Sem cargo informado"
                           }), (0,A.jsx)(SeseAbsenceBadge,{data:e,employeeId:S.id})]
                         })]
                       })
-                    }), (0, A.jsx)(Lt, {
-                      children: qn(S.departmentId)
-                    }), (0, A.jsxs)(Lt, {
-                      children: [T, " de ", M.length, (0, A.jsx)(xh, {
-                        value: M.length ? T / M.length * 100 : 0,
-                        className: "mini-progress"
-                      })]
-                    }), (0, A.jsx)(Lt, {
-                      children: (0, A.jsxs)("button", {
-                        className: "text-link",
-                        onClick: () => Te(S.id),
-                        children: [e.trainings.filter(ne => ne.employeeId === S.id).length, " registros ", (0, A.jsx)(fa, {
-                          size: 14
-                        })]
-                      })
-                    }), (0, A.jsx)(Lt, {
+                    }), ...[S.admissionDate ? Ql(S.admissionDate) : "—", S.role||"—", S.shift||"—", S.versatility||"—", S.responsible||"—"].map((value,index)=>(0,A.jsx)(Lt,{children:value},index)), (0, A.jsx)(Lt, {
                       children: (0,A.jsxs)("div",{className:"actions",children:[(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar treinamento para "+S.name,onClick:()=>ot("training",undefined,{employeeId:S.id}),children:(0,A.jsx)(gn,{size:18})}),(0,A.jsx)("button",{className:"icon-button","aria-label":"Afastamentos de "+S.name,onClick:()=>setSeseAbsenceId(S.id),children:(0,A.jsx)(Us,{size:18})}),Wl("employee",S.id,S.name)]})
                     })]
                   }, S.id);
@@ -3200,7 +3186,7 @@ function Rh() {
                 children: "Cadastre um departamento primeiro."
               })]
             }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : "Nome *"), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
-              children: [wo("role", "Cargo", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
+              children: [wo("registration", "Matrícula", "text", !1), wo("vwBadge", "Chapa Volkswagen", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("versatility", "Carta de Versatilidade", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
                 className: "form-hint",
                 children: "A matriz passar\xE1 a exibir as atividades do novo departamento. O hist\xF3rico de treinamentos ser\xE1 preservado."
               })]
