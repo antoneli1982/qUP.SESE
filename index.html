@@ -970,6 +970,8 @@ function sesePolyPrint(node) {
     text.textContent = input.type === "date" ? (value ? Ql(value) : "____/____/______") : value;
     input.replaceWith(text);
   });
+  // No papel a folha mant\xE9m a largura que a tabela tem na tela (limitada \xE0 p\xE1gina).
+  copy.style.width = (node.querySelector("table")?.offsetWidth || 0) + 4 + "px";
   holder.appendChild(copy);
   document.body.appendChild(holder);
   document.documentElement.classList.add("sese-poly-printing");
@@ -4214,23 +4216,23 @@ html[data-theme=dark] .sese-poly-top-button{color:#8fb8ff}
 .sese-poly-button:disabled{opacity:.5;cursor:not-allowed}
 .sese-poly-empty{margin:0 0 1rem;padding:.75rem 1rem;border:1px dashed var(--ui-border,#cbd8e9);border-radius:8px;font-size:.8125rem;color:var(--muted-foreground,#64748b)}
 .sese-poly-scroll{overflow-x:auto;max-width:100%}
-.sese-poly-sheet{--poly-line:#1f2937;--poly-head:#d9d9d9;--poly-ink:#111827;--poly-paper:#fff;display:inline-block;min-width:100%;color:var(--poly-ink);background:var(--poly-paper);border:2px solid var(--poly-line)}
+.sese-poly-sheet{--poly-line:#1f2937;--poly-head:#d9d9d9;--poly-ink:#111827;--poly-paper:#fff;display:inline-block;vertical-align:top;min-width:min(100%,34rem);max-width:none;color:var(--poly-ink);background:var(--poly-paper);border:2px solid var(--poly-line)}
 html[data-theme=dark] .sese-poly-sheet{--poly-line:#5b7092;--poly-head:#2a3b57;--poly-ink:#e7f0ff;--poly-paper:#18253a}
-.sese-poly-table{border-collapse:collapse;width:100%;font-size:.75rem}
+.sese-poly-table{border-collapse:collapse;width:auto;min-width:100%;font-size:.75rem}
 .sese-poly-table th,.sese-poly-table td{border:1px solid var(--poly-line);padding:3px 6px;text-align:center;vertical-align:middle;height:28px}
-.sese-poly-sector{font-size:1rem;font-weight:700;min-width:15rem}
+.sese-poly-sector{font-size:1rem;font-weight:700}
 .sese-poly-sector>div{display:flex;align-items:center;gap:1rem;padding:.25rem .5rem}
 .sese-poly-sector>div>span{flex:1;text-align:center}
 .sese-poly-logo{flex:none;display:block;width:auto;height:3.25rem;max-width:11rem;object-fit:contain;background:#fff;border-radius:4px;padding:2px 6px}
-.sese-poly-title{font-size:1.35rem;font-weight:700;padding:14px 6px!important}
+.sese-poly-title{white-space:nowrap;font-size:1.35rem;font-weight:700;padding:14px 6px!important}
 .sese-poly-subtitle{font-size:.8125rem;font-weight:700}
 .sese-poly-v{height:11.5rem!important;width:2.4rem;min-width:2.4rem;padding:6px 2px!important;vertical-align:bottom!important;background:var(--poly-head);font-size:.6875rem;font-weight:700}
 .sese-poly-v.plain{background:transparent}
 .sese-poly-v.wide{min-width:6.5rem}
 .sese-poly-v span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);max-height:10.5rem;line-height:1.15;text-align:left;white-space:normal}
-.sese-poly-badge{width:5.5rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sese-poly-badge{width:1%;min-width:5.5rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 .sese-poly-badge.away{background:#e53935;color:#fff;font-weight:700}
-.sese-poly-name{text-align:left!important;min-width:13rem;white-space:nowrap}
+.sese-poly-name{text-align:left!important;white-space:nowrap}
 .sese-poly-name button{color:inherit;font:inherit;text-align:left;cursor:pointer}
 .sese-poly-name button:hover{text-decoration:underline}
 .sese-poly-date{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:.6875rem}
@@ -4257,7 +4259,7 @@ html[data-theme=dark] .sese-poly-cell select,html[data-theme=dark] .sese-poly-se
 .sese-poly-input:focus{outline:2px solid #0066ff}
 .sese-poly-number .sese-poly-input{-moz-appearance:textfield;appearance:textfield;font-weight:600}
 .sese-poly-number .sese-poly-input::-webkit-outer-spin-button,.sese-poly-number .sese-poly-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.sese-poly-foot{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:stretch;padding:.75rem;border-top:1px solid var(--poly-line)}
+.sese-poly-foot{contain:inline-size;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:stretch;padding:.75rem;border-top:1px solid var(--poly-line)}
 .sese-poly-notes{flex:1 1 26rem;min-width:0}
 .sese-poly-notes p{margin:0 0 .75rem;font-size:.6875rem;font-weight:700;line-height:1.45;text-transform:uppercase}
 .sese-poly-sign{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}
@@ -4293,17 +4295,16 @@ html[data-theme=dark] .sese-poly-sign input[type=date]{color-scheme:dark}
 .sese-poly-order .icon-button:disabled{opacity:.3}
 .sese-poly-list .muted{padding:8px;font-size:.8125rem}
 .sese-poly-quick{display:flex;gap:1rem}
-@media(max-width:640px){.sese-poly-pick{grid-template-columns:1fr}.sese-poly-list{height:12rem}.sese-poly-panel{padding:.9rem}.sese-poly-actions,.sese-poly-select{width:100%;max-width:none}.sese-poly-button{flex:1}.sese-poly-name{min-width:9.5rem;white-space:normal}.sese-poly-sector{min-width:0}.sese-poly-sector>div{flex-direction:column;gap:.5rem}.sese-poly-logo{height:2.5rem}}
+@media(max-width:640px){.sese-poly-pick{grid-template-columns:1fr}.sese-poly-list{height:12rem}.sese-poly-panel{padding:.9rem}.sese-poly-actions,.sese-poly-select{width:100%;max-width:none}.sese-poly-button{flex:1}.sese-poly-name{white-space:nowrap}.sese-poly-sector>div{flex-direction:column;gap:.5rem}.sese-poly-logo{height:2.5rem}}
 #sese-poly-print{display:none}
 @page sesePoly{size:A4 landscape;margin:8mm}
 @media print{
 html.sese-poly-printing,html.sese-poly-printing body{background:#fff!important;height:auto!important;overflow:visible!important}
 html.sese-poly-printing body>:not(#sese-poly-print){display:none!important}
 html.sese-poly-printing #sese-poly-print{display:block;page:sesePoly}
-#sese-poly-print .sese-poly-sheet{--poly-line:#000;--poly-head:#d9d9d9;--poly-ink:#000;--poly-paper:#fff;display:block;width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-#sese-poly-print .sese-poly-table{font-size:7.5pt}
-#sese-poly-print .sese-poly-name{white-space:normal;min-width:0}
-#sese-poly-print .sese-poly-sector{min-width:0}
+#sese-poly-print .sese-poly-sheet{--poly-line:#000;--poly-head:#d9d9d9;--poly-ink:#000;--poly-paper:#fff;display:block;box-sizing:border-box;min-width:0;max-width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#sese-poly-print .sese-poly-table{font-size:7.5pt;max-width:100%}
+#sese-poly-print .sese-poly-name{white-space:normal}
 #sese-poly-print .sese-poly-logo{height:14mm}
 #sese-poly-print .sese-poly-cell select{display:none}
 #sese-poly-print .sese-poly-cell.manual::after{display:none}
