@@ -1225,7 +1225,7 @@ function UD(e, t = !1) {
     let polySheet = XLSX.utils.aoa_to_sheet(polyRows);
     polySheet["!cols"] = [28, 14, 34, 14, 42, 8, 32, 14].map(u => ({ wch: u })), polySheet["!autofilter"] = { ref: polySheet["!ref"] }, XLSX.utils.book_append_sheet(o, polySheet, "Matriz_Polivalencia");
   }
-  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por departamento."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das oito colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula ou Chapa Volkswagen (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["Matriz de polival\xEAncia", "Matriz_Departamentos define os cursos (colunas) da matriz de cada departamento, na ordem das linhas, e a Necessidade de operadores. Niveis_Cursos guarda apenas os n\xEDveis 0 a 4 ajustados manualmente; os demais s\xE3o calculados pelos cursos. Matriz_Polivalencia \xE9 apenas para leitura."], ["Matriz_Cursos", "Aba apenas para leitura: a matriz de cada departamento, colaborador por curso. Para alterar, edite Treinamentos e Cursos_Pre_Requisito."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
+  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por departamento."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das oito colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula ou Chapa Volkswagen (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Sincronizar colaboradores", "Modo padr\xE3o ao subir uma planilha com colaboradores: mant\xE9m quem j\xE1 existe com todo o hist\xF3rico, adiciona os novos e elimina quem n\xE3o est\xE1 na planilha. A lista de eliminados aparece antes de confirmar e depois da importa\xE7\xE3o."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["Matriz de polival\xEAncia", "Matriz_Departamentos define os cursos (colunas) da matriz de cada departamento, na ordem das linhas, e a Necessidade de operadores. Niveis_Cursos guarda apenas os n\xEDveis 0 a 4 ajustados manualmente; os demais s\xE3o calculados pelos cursos. Matriz_Polivalencia \xE9 apenas para leitura."], ["Matriz_Cursos", "Aba apenas para leitura: a matriz de cada departamento, colaborador por curso. Para alterar, edite Treinamentos e Cursos_Pre_Requisito."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
     l = XLSX.utils.aoa_to_sheet(n);
   return l["!cols"] = [{
     wch: 28
@@ -1509,6 +1509,49 @@ async function dM(e) {
       sheetRows: 20003
     });
   return QD(a);
+}
+// Sincronização: mantém quem já existe (com todo o histórico), adiciona os novos e elimina quem não veio na planilha.
+function seseSyncPlan(current, incoming) {
+  if (!incoming.employees.length) throw Error("A planilha n\xE3o tem colaboradores para sincronizar.");
+  const merged = AM(current, incoming, false);
+  const sheetIds = new Set(incoming.employees.map(record => {
+    const existing = current.employees.find(item => item.id === record.id || (record.registration && (item.registration === record.registration || item.id === "MAT_" + record.registration)) || (record.vwBadge && item.vwBadge === record.vwBadge));
+    return existing?.id || record.id;
+  }));
+  const before = new Set(current.employees.map(item => item.id));
+  const departmentName = (data, id) => data.departments.find(item => item.id === id)?.name || "";
+  const describe = (data, person) => ({ id: person.id, name: person.name, badge: person.vwBadge || person.registration || "", role: person.role || "", department: departmentName(data, person.departmentId) });
+  const byName = (a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+  const removed = current.employees.filter(item => !sheetIds.has(item.id)).map(item => describe(current, item)).sort(byName);
+  const added = merged.employees.filter(item => sheetIds.has(item.id) && !before.has(item.id)).map(item => describe(merged, item)).sort(byName);
+  const gone = new Set(removed.map(item => item.id));
+  const data = { ...merged,
+    employees: merged.employees.filter(item => !gone.has(item.id)),
+    evaluations: merged.evaluations.filter(item => !gone.has(item.employeeId)),
+    trainings: merged.trainings.filter(item => !gone.has(item.employeeId)),
+    absences: merged.absences.filter(item => !gone.has(item.employeeId)),
+    courseLevels: (merged.courseLevels || []).filter(item => !gone.has(item.employeeId)) };
+  return { data, removed, added, kept: current.employees.length - removed.length, lostTrainings: current.trainings.filter(item => gone.has(item.employeeId)).length };
+}
+function SeseSyncList({ title, people, tone, open }) {
+  if (!people.length) return null;
+  return /*#__PURE__*/_jsxs("details", { className: "sese-sync-list " + tone, open, children: [
+    /*#__PURE__*/_jsxs("summary", { children: [title, " (", people.length, ")"] }),
+    /*#__PURE__*/_jsx("ul", { children: people.map(person => /*#__PURE__*/_jsxs("li", { children: [/*#__PURE__*/_jsx("strong", { children: person.name }), /*#__PURE__*/_jsx("small", { children: [person.badge, person.role, person.department].filter(Boolean).join(" \xB7 ") })] }, person.id)) })
+  ] });
+}
+function SeseSyncSummary({ plan, done }) {
+  return /*#__PURE__*/_jsxs("div", { className: "sese-sync", children: [
+    /*#__PURE__*/_jsxs("div", { className: "sese-sync-counts", children: [
+      /*#__PURE__*/_jsxs("div", { children: [/*#__PURE__*/_jsx("strong", { children: plan.kept }), /*#__PURE__*/_jsx("span", { children: done ? "mantidos" : "ser\xE3o mantidos" })] }),
+      /*#__PURE__*/_jsxs("div", { className: "added", children: [/*#__PURE__*/_jsx("strong", { children: plan.added.length }), /*#__PURE__*/_jsx("span", { children: done ? "adicionados" : "ser\xE3o adicionados" })] }),
+      /*#__PURE__*/_jsxs("div", { className: "removed", children: [/*#__PURE__*/_jsx("strong", { children: plan.removed.length }), /*#__PURE__*/_jsx("span", { children: done ? "eliminados" : "ser\xE3o eliminados" })] })
+    ] }),
+    /*#__PURE__*/_jsx(SeseSyncList, { title: done ? "Eliminados (n\xE3o estavam na planilha)" : "Ser\xE3o eliminados (n\xE3o est\xE3o na planilha)", people: plan.removed, tone: "removed", open: true }),
+    plan.removed.length > 0 && plan.lostTrainings > 0 && /*#__PURE__*/_jsx("p", { className: "sese-sync-warning", children: (done ? "Junto com eles foram exclu\xEDdos " : "Junto com eles ser\xE3o exclu\xEDdos ") + plan.lostTrainings + " treinamento(s) realizado(s), al\xE9m das avalia\xE7\xF5es, afastamentos e n\xEDveis dessas pessoas." }),
+    /*#__PURE__*/_jsx(SeseSyncList, { title: done ? "Adicionados" : "Ser\xE3o adicionados", people: plan.added, tone: "added", open: done && !plan.removed.length }),
+    !plan.removed.length && !plan.added.length && /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Ningu\xE9m entra ou sai: a planilha tem as mesmas pessoas do cadastro. Os dados delas ser\xE3o atualizados." })
+  ] });
 }
 function AM(e, t, a) {
   let o = a ? Bn() : structuredClone(e);
@@ -2444,7 +2487,7 @@ function SeseEditableCell({ value = "", type = "text", options = [], label = "",
   return (0, A.jsxs)(A.Fragment, { children: [(0, A.jsx)("input", { className: "sese-inline-input", type, autoFocus: true, value: draft, maxLength: type === "date" ? void 0 : maxLength, max: type === "date" ? Xo() : void 0, list: options.length ? listId : void 0, "aria-label": label, onChange: event => setDraft(event.target.value), onBlur: () => finish(true), onKeyDown: event => { if (event.key === "Enter") { event.preventDefault(); finish(true); } else if (event.key === "Escape") { event.preventDefault(); finish(false); } } }), options.length > 0 && (0, A.jsx)("datalist", { id: listId, children: options.map(option => (0, A.jsx)("option", { value: option }, option)) })] });
 }
 function Rh() {
-  const [seseCard,setSeseCard]=Be.useState("all"), [sesePolyDept,setSesePolyDept]=Be.useState("");
+  const [seseCard,setSeseCard]=Be.useState("all"), [sesePolyDept,setSesePolyDept]=Be.useState(""), [seseDeptQuery,setSeseDeptQuery]=Be.useState(""), [seseSyncResult,setSeseSyncResult]=Be.useState(null);
   const [seseEdit,setSeseEdit]=Be.useState(null), [sesePicker,setSesePicker]=Be.useState(null), [seseAbsenceId,setSeseAbsenceId]=Be.useState(null);
   let [e, t] = (0, Be.useState)(Bn),
     [a, o] = (0, Be.useState)(Bn),
@@ -2495,7 +2538,7 @@ function Rh() {
       Y({
         data: M,
         name: S.name
-      }), ve("merge"), xt(!0);
+      }), ve(M.employees.length ? "sync" : "merge"), xt(!0);
     } catch (M) {
       El.error(M instanceof Error ? M.message : "N\xE3o foi poss\xEDvel ler a planilha.");
     }
@@ -2504,8 +2547,10 @@ function Rh() {
     if (Z) {
       ze("");
       try {
-        let S = AM(e, Z.data, De === "replace");
+        let plan = De === "sync" ? seseSyncPlan(e, Z.data) : null;
+        let S = plan ? plan.data : AM(e, Z.data, De === "replace");
         await Ct(S), Y(null), xt(!1), p("all"), y("all"), G(null);
+        plan && setSeseSyncResult(plan);
       } catch (S) {
         ze(S instanceof Error ? S.message : "Falha ao importar.");
       }
@@ -2644,6 +2689,14 @@ function Rh() {
     next.courseLevels = (next.courseLevels || []).filter(item => !(item.employeeId === employeeId && item.trainingId === trainingId));
     if (level !== null) next.courseLevels.push({ employeeId, trainingId, level });
   });
+  const seseDeptTitles = new Map(e.trainingCatalog.map(item => [item.id, item.title]));
+  const seseDeptFound = e.departments.filter(S => {
+    const words = seseText(seseDeptQuery).split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const haystack = seseText([S.name, S.description, ...(S.versatilityCards || []), ...seseDepartmentPrerequisiteIds(e, S.id).map(id => seseDeptTitles.get(id)), ...(S.matrixCourses || []).map(link => seseDeptTitles.get(link.trainingId))].join(" "));
+    return words.every(word => haystack.includes(word));
+  });
+  const seseSyncPreview = Be.useMemo(() => { if (!Z || De !== "sync") return null; try { return seseSyncPlan(e, Z.data); } catch (err) { return { error: err instanceof Error ? err.message : "N\xE3o foi poss\xEDvel comparar a planilha." }; } }, [e, Z, De]);
   const sesePolyGo = id => { setSesePolyDept(id); setTimeout(() => { const panel = document.getElementById("sese-poly-anchor"); if (!panel) return; panel.scrollIntoView({ behavior: "smooth", block: "start" }); panel.classList.remove("sese-poly-flash"); void panel.offsetWidth; panel.classList.add("sese-poly-flash"); }, 60); };
   const SESE_FIELD_LABELS = { name: "nome", registration: "matr\xEDcula", vwBadge: "chapa VW", admissionDate: "admiss\xE3o", role: "cargo atual", shift: "turno", versatility: "carta de versatilidade", responsible: "respons\xE1vel" };
   const seseCell = (person, field, children) => (0, A.jsx)(SeseEditableCell, { value: person[field] || "", type: field === "admissionDate" ? "date" : "text", maxLength: field === "registration" || field === "vwBadge" ? 100 : 140, label: SESE_FIELD_LABELS[field] + " de " + person.name, options: seseFieldOptions(field), onSave: value => seseSaveField(person.id, field, value), children }, person.id + "|" + field);
@@ -3677,7 +3730,7 @@ function Rh() {
             })]
           }), i === "departments" && (0, A.jsxs)("div", {
             className: "department-grid",
-            children: [e.departments.map(S => (0, A.jsxs)("section", {
+            children: [e.departments.length > 0 && (0, A.jsxs)("div", { className: "full sese-dept-search", children: [(0, A.jsxs)("label", { className: "search", children: [(0, A.jsx)(Lu, { size: 18 }), (0, A.jsx)("input", { type: "search", "aria-label": "Buscar departamento", placeholder: "Buscar departamento, carta de versatilidade ou curso\u2026", value: seseDeptQuery, onChange: S => setSeseDeptQuery(S.target.value) })] }), seseDeptQuery && (0, A.jsx)("button", { type: "button", className: "text-link", onClick: () => setSeseDeptQuery(""), children: "Limpar busca" }), (0, A.jsxs)("small", { children: [seseDeptFound.length, " de ", e.departments.length, " departamentos"] })] }), e.departments.length > 0 && !seseDeptFound.length && (0, A.jsx)("section", { className: "panel full sese-dept-none", children: "Nenhum departamento encontrado para \u201C" + seseDeptQuery + "\u201D." }), seseDeptFound.map(S => (0, A.jsxs)("section", {
               className: "panel department-card",
               children: [(0, A.jsxs)("div", {
                 className: "department-card-top",
@@ -4059,7 +4112,7 @@ function Rh() {
             label: "Modo de importa\xE7\xE3o",
             value: De,
             onChange: ve,
-            options: [{
+            options: [...(Z?.data.employees.length ? [{ id: "sync", name: "Sincronizar colaboradores (manter, adicionar e eliminar)" }] : []), {
               id: "merge",
               name: "Adicionar / atualizar pelo ID"
             }, {
@@ -4069,8 +4122,8 @@ function Rh() {
           })]
         }), (0, A.jsxs)("p", {
           className: "form-hint",
-          children: [De === "merge" ? "Os IDs existentes ser\xE3o atualizados. Os outros registros ser\xE3o mantidos." : "Todos os registros atuais ser\xE3o substitu\xEDdos pelo conte\xFAdo desta planilha. Exporte seu Excel antes de confirmar.", l ? " Voc\xEA est\xE1 na demonstra\xE7\xE3o; a importa\xE7\xE3o ser\xE1 tempor\xE1ria." : "", " Colunas extras fora do modelo s\xE3o ignoradas."]
-        }), xe && (0, A.jsx)("p", {
+          children: [De === "sync" ? "Quem j\xE1 existe mant\xE9m treinamentos, avalia\xE7\xF5es, afastamentos e n\xEDveis; os dados da planilha atualizam o cadastro. Quem n\xE3o est\xE1 na planilha \xE9 eliminado e quem \xE9 novo \xE9 adicionado. Departamentos, cursos e matrizes n\xE3o s\xE3o apagados." : De === "merge" ? "Os IDs existentes ser\xE3o atualizados. Os outros registros ser\xE3o mantidos." : "Todos os registros atuais ser\xE3o substitu\xEDdos pelo conte\xFAdo desta planilha. Exporte seu Excel antes de confirmar.", l ? " Voc\xEA est\xE1 na demonstra\xE7\xE3o; a importa\xE7\xE3o ser\xE1 tempor\xE1ria." : "", " Colunas extras fora do modelo s\xE3o ignoradas."]
+        }), seseSyncPreview && (seseSyncPreview.error ? (0, A.jsx)("p", { className: "form-error", role: "alert", children: seseSyncPreview.error }) : (0, A.jsx)(SeseSyncSummary, { plan: seseSyncPreview })), xe && (0, A.jsx)("p", {
           className: "form-error",
           role: "alert",
           children: xe
@@ -4082,16 +4135,16 @@ function Rh() {
             onClick: () => xt(!1),
             children: "Cancelar"
           }), (0, A.jsx)("button", {
-            className: "btn " + (De === "replace" ? "delete" : "primary"),
-            disabled: v,
+            className: "btn " + (De === "replace" || (De === "sync" && seseSyncPreview?.removed?.length) ? "delete" : "primary"),
+            disabled: v || (De === "sync" && !!seseSyncPreview?.error),
             onClick: () => {
               Dr();
             },
-            children: v ? "Importando\u2026" : De === "replace" ? "Confirmar substitui\xE7\xE3o" : "Confirmar importa\xE7\xE3o"
+            children: v ? "Importando\u2026" : De === "replace" ? "Confirmar substitui\xE7\xE3o" : De === "sync" ? (seseSyncPreview?.removed?.length ? "Sincronizar e eliminar " + seseSyncPreview.removed.length : "Confirmar sincroniza\xE7\xE3o") : "Confirmar importa\xE7\xE3o"
           })]
         })]
       })
-    }), seseEdit && (0,A.jsx)(SeseCatalogEditor,{item:seseEdit,busy:v,onClose:()=>setSeseEdit(null),onSave:seseSaveCatalog}),
+    }), seseSyncResult && (0, A.jsx)("div", { className: "sese-poly-overlay", onMouseDown: S => { S.target === S.currentTarget && setSeseSyncResult(null); }, children: (0, A.jsxs)("div", { className: "sese-poly-dialog sese-sync-dialog", role: "dialog", "aria-modal": "true", "aria-label": "Resultado da sincroniza\xE7\xE3o", children: [(0, A.jsx)("header", { children: (0, A.jsxs)("div", { children: [(0, A.jsx)("h2", { children: "Sincroniza\xE7\xE3o conclu\xEDda" }), (0, A.jsx)("p", { children: "Veja quem foi mantido, adicionado e eliminado nesta importa\xE7\xE3o." })] }) }), (0, A.jsx)("div", { className: "sese-sync-body", children: (0, A.jsx)(SeseSyncSummary, { plan: seseSyncResult, done: true }) }), (0, A.jsx)("footer", { children: (0, A.jsx)("button", { type: "button", className: "sese-poly-button primary", autoFocus: true, onClick: () => setSeseSyncResult(null), children: "Entendi" }) })] }) }), seseEdit && (0,A.jsx)(SeseCatalogEditor,{item:seseEdit,busy:v,onClose:()=>setSeseEdit(null),onSave:seseSaveCatalog}),
     sesePicker && (0,A.jsx)(SesePicker,{items:e.trainingCatalog,context:sesePicker.kind==='department'?qn(sesePicker.id):sesePicker.id?Ta(sesePicker.id):'Colaborador',busy:v,linked:sesePicker.kind==='department'?e.departmentTrainings.filter(item=>item.departmentId===sesePicker.id).map(item=>item.trainingId):[],onClose:()=>setSesePicker(null),onSelect:seseChoose,onCatalog:()=>{setSesePicker(null);Ht('catalog');}}),
     seseAbsenceId && (0,A.jsx)(SeseAbsenceEditor,{data:e,employeeId:seseAbsenceId,busy:v,onSave:seseSaveAbsence,onClose:()=>setSeseAbsenceId(null)}),
     (0, A.jsx)(Jw, {
@@ -4197,6 +4250,11 @@ html[data-theme=dark] [data-slot="table-container"]:fullscreen,html[data-theme=d
 .sese-poly-open-arrow{flex:none;font-size:1.1rem;color:#0066ff}
 html[data-theme=dark] .sese-poly-open{border-color:#4d8dff;background:rgba(77,141,255,.14)}
 html[data-theme=dark] .sese-poly-open-arrow{color:#8fb8ff}
+.sese-dept-search{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem}
+.sese-dept-search .search{flex:1 1 18rem;max-width:34rem}
+.sese-dept-search small{font-size:.75rem;color:var(--muted-foreground,#64748b);margin-left:auto}
+.sese-dept-search .text-link{margin:0}
+.sese-dept-none{padding:1.5rem;font-size:.875rem;color:var(--muted-foreground,#64748b)}
 .sese-poly-top{display:inline-flex;align-items:center;gap:4px}
 .sese-poly-top-button{color:#0066ff}
 html[data-theme=dark] .sese-poly-top-button{color:#8fb8ff}
@@ -4315,6 +4373,32 @@ html.sese-poly-printing #sese-poly-print{display:block;page:sesePoly}
 #sese-poly-print thead{display:table-header-group}
 #sese-poly-print tfoot{display:table-row-group}
 }
+</style><style id="sese-sync-style">
+.sese-sync{display:grid;gap:.75rem;margin:.25rem 0 .75rem}
+.sese-sync-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.sese-sync-counts>div{border:1px solid var(--ui-border,#e2e8f0);border-radius:8px;padding:.5rem .75rem;display:grid;gap:2px}
+.sese-sync-counts strong{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
+.sese-sync-counts span{font-size:.75rem;color:var(--muted-foreground,#64748b)}
+.sese-sync-counts .added strong{color:#15803d}
+.sese-sync-counts .removed strong{color:#c12c3b}
+html[data-theme=dark] .sese-sync-counts .added strong{color:#6fdc98}
+html[data-theme=dark] .sese-sync-counts .removed strong{color:#ff9aa5}
+.sese-sync-list{border:1px solid var(--ui-border,#e2e8f0);border-radius:8px;overflow:hidden}
+.sese-sync-list summary{cursor:pointer;padding:.5rem .75rem;font-size:.8125rem;font-weight:600}
+.sese-sync-list.removed{border-color:#e5979d}
+.sese-sync-list.removed summary{background:#fff0f0;color:#a41724}
+html[data-theme=dark] .sese-sync-list.removed{border-color:#8a3a4a}
+html[data-theme=dark] .sese-sync-list.removed summary{background:#3e202c;color:#ffc1c7}
+.sese-sync-list ul{list-style:none;margin:0;padding:.25rem .75rem;max-height:13rem;overflow:auto}
+.sese-sync-list li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.15rem .75rem;padding:.35rem 0;border-top:1px solid var(--ui-border,#e2e8f0);font-size:.8125rem}
+.sese-sync-list li:first-child{border-top:0}
+.sese-sync-list li strong{font-weight:500}
+.sese-sync-list li small{font-size:.75rem;color:var(--muted-foreground,#64748b)}
+.sese-sync-warning{margin:0;font-size:.75rem;color:#a41724}
+html[data-theme=dark] .sese-sync-warning{color:#ffc1c7}
+.sese-sync-dialog{width:min(100%,38rem)}
+.sese-sync-body{padding:0 1.25rem;overflow:auto;min-height:0}
+.sese-sync-dialog .sese-sync-list ul{max-height:18rem}
 </style><script id="sese-horizontal-controls-script">
 (() => {
   const containerSelector = '[data-slot="table-container"]';
