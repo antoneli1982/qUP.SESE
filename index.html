@@ -894,9 +894,10 @@ function sesePolyMatrix(data, departmentId) {
   const trained = course => employees.filter(employee => !seseAbsence(data, employee.id).active && level(employee, course).level >= 3).length;
   return { department, courses, employees, level, absence, trained };
 }
-// M\xEAs vigente da matriz: o m\xEAs da data de emiss\xE3o (ou o m\xEAs atual enquanto ela n\xE3o for informada).
+// M\xEAs vigente da matriz: sempre o m\xEAs da data de emiss\xE3o; sem data de emiss\xE3o, fica em branco.
 function sesePolyMonth(issueDate) {
-  const [year, month] = (/^\d{4}-\d{2}-\d{2}$/.test(issueDate || "") ? issueDate : Xo()).split("-").map(Number);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate || "")) return "\u2014";
+  const [year, month] = issueDate.split("-").map(Number);
   return ["JANEIRO", "FEVEREIRO", "MAR\xC7O", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"][month - 1] + " / " + year;
 }
 function SeseBall({ level = 0, size = 22 }) {
@@ -910,7 +911,7 @@ function SesePolyInput({ value = "", type = "text", label, onSave, disabled, min
   const [draft, setDraft] = Be.useState(value ?? "");
   Be.useEffect(() => { setDraft(value ?? ""); }, [value]);
   const commit = () => { if (String(draft ?? "") !== String(value ?? "")) onSave(draft); };
-  return /*#__PURE__*/_jsx("input", { className: "sese-poly-input " + className, type, value: draft, min, max, maxLength: type === "text" ? maxLength : void 0, disabled, "aria-label": label, title: label, onChange: event => setDraft(event.target.value), onBlur: commit, onKeyDown: event => { if (event.key === "Enter") event.currentTarget.blur(); else if (event.key === "Escape") setDraft(value ?? ""); } });
+  return /*#__PURE__*/_jsx("input", { className: "sese-poly-input " + className, type, value: draft, min, max, maxLength: type === "text" ? maxLength : void 0, disabled, "aria-label": label, title: label, onChange: event => { const next = event.target.value; setDraft(next); if (type === "date" && (next === "" || /^(19|20)\d{2}-\d{2}-\d{2}$/.test(next)) && next !== String(value ?? "")) onSave(next); }, onBlur: commit, onKeyDown: event => { if (event.key === "Enter") event.currentTarget.blur(); else if (event.key === "Escape") setDraft(value ?? ""); } });
 }
 function SesePolyCourses({ data, department, onClose, onSave }) {
   const current = (department.matrixCourses || []).map(item => item.trainingId);
@@ -1053,21 +1054,10 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
           }),
           !matrix.employees.length && /*#__PURE__*/_jsx("tr", { children: /*#__PURE__*/_jsx("td", { className: "sese-poly-none", colSpan: span, children: "Nenhum colaborador neste departamento." }) })
         ] }),
-        /*#__PURE__*/_jsxs("tfoot", { children: [
-          /*#__PURE__*/_jsx("tr", { children: /*#__PURE__*/_jsx("th", { className: "sese-poly-band", colSpan: span, children: "AN\xC1LISE DE DEMANDA DE OPERA\xC7\xC3O" }) }),
-          /*#__PURE__*/_jsxs("tr", { children: [
-            /*#__PURE__*/_jsx("th", { className: "sese-poly-rowhead", colSpan: 3, children: "NECESSIDADE DE OPERADORES POR ATIVIDADE" }),
-            matrix.courses.map(course => /*#__PURE__*/_jsx("td", { className: "sese-poly-number", children: /*#__PURE__*/_jsx(SesePolyInput, { value: String(course.demand), type: "number", min: 0, max: 9999, disabled, label: "Necessidade de operadores em " + course.title, onSave: value => saveDemand(course, value) }) }, course.id)),
-          ] }),
-          /*#__PURE__*/_jsxs("tr", { children: [
-            /*#__PURE__*/_jsx("th", { className: "sese-poly-rowhead", colSpan: 3, children: "OPERADORES TREINADOS" }),
-            matrix.courses.map(course => { const count = matrix.trained(course); return /*#__PURE__*/_jsx("td", { className: "sese-poly-number" + (course.demand && count < course.demand ? " short" : ""), title: course.demand && count < course.demand ? "Abaixo da necessidade (" + course.demand + ")" : "Colaboradores ativos nos n\xEDveis 3 e 4", children: count }, course.id); }),
-          ] })
-        ] })
       ] }),
       /*#__PURE__*/_jsxs("div", { className: "sese-poly-foot", children: [
         /*#__PURE__*/_jsxs("div", { className: "sese-poly-notes", children: [
-          /*#__PURE__*/_jsxs("div", { className: "sese-poly-sign", children: [field("matrixPreparedBy", "Elaborado por"), field("matrixVerifiedBy", "Verificado por"), field("matrixApprovedBy", "Aprovado por"), field("matrixIssueDate", "Data de emiss\xE3o", "date"), field("matrixRevisionDate", "Data de revis\xE3o", "date"), /*#__PURE__*/_jsxs("div", { className: "sese-poly-month", title: department.matrixIssueDate ? "M\xEAs da data de emiss\xE3o" : "Sem data de emiss\xE3o: m\xEAs atual", children: [/*#__PURE__*/_jsx("span", { children: "M\xEAs vigente" }), /*#__PURE__*/_jsx("strong", { children: sesePolyMonth(department.matrixIssueDate) })] })] })
+          /*#__PURE__*/_jsxs("div", { className: "sese-poly-sign", children: [field("matrixPreparedBy", "Elaborado por"), field("matrixVerifiedBy", "Verificado por"), field("matrixApprovedBy", "Aprovado por"), field("matrixIssueDate", "Data de emiss\xE3o", "date"), field("matrixRevisionDate", "Data de revis\xE3o", "date"), /*#__PURE__*/_jsxs("div", { className: "sese-poly-month", title: department.matrixIssueDate ? "M\xEAs da data de emiss\xE3o" : "Informe a data de emiss\xE3o para preencher o m\xEAs vigente", children: [/*#__PURE__*/_jsx("span", { children: "M\xEAs vigente" }), /*#__PURE__*/_jsx("strong", { children: sesePolyMonth(department.matrixIssueDate) })] })] })
         ] }),
         /*#__PURE__*/_jsx("div", { className: "sese-poly-legend", children: SESE_LEVELS.map((label, index) => /*#__PURE__*/_jsxs("div", { children: [/*#__PURE__*/_jsx(SeseBall, { level: index, size: 26 }), /*#__PURE__*/_jsxs("strong", { children: ["N\xCDVEL ", index] }), /*#__PURE__*/_jsx("span", { children: label })] }, index)) })
       ] })
