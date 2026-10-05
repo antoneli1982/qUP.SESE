@@ -3131,11 +3131,12 @@ function Rh() {
               className: "text-link",
               onClick: () => wh(e, !0),
               children: "Baixar modelo"
-            }), (0, A.jsx)("button", {
-              className: "btn outline",
+            }), (0, A.jsxs)("button", {
+              className: "btn sese-import-button",
               onClick: () => Ue.current?.click(),
               disabled: v,
-              children: "Importar Excel"
+              title: "Subir uma planilha Excel para atualizar os cadastros",
+              children: [(0, A.jsxs)("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true", children: [(0, A.jsx)("path", { d: "M12 16V4" }), (0, A.jsx)("path", { d: "M7 9l5-5 5 5" }), (0, A.jsx)("path", { d: "M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" })] }), "Importar Excel"]
             }), (0, A.jsxs)("button", {
               className: "btn primary",
               onClick: kn,
@@ -4399,6 +4400,14 @@ html[data-theme=dark] .sese-sync-warning{color:#ffc1c7}
 .sese-sync-dialog{width:min(100%,38rem)}
 .sese-sync-body{padding:0 1.25rem;overflow:auto;min-height:0}
 .sese-sync-dialog .sese-sync-list ul{max-height:18rem}
+
+.btn.sese-import-button{display:inline-flex;align-items:center;gap:8px;background:#0f9d58;border:1px solid #0b8047;color:#fff;font-weight:700;padding-left:18px;padding-right:20px;box-shadow:0 2px 0 #0b8047,0 6px 16px rgba(15,157,88,.35);transition:background .15s ease,transform .1s ease,box-shadow .15s ease}
+.btn.sese-import-button:hover:not(:disabled){background:#12b264}
+.btn.sese-import-button:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 #0b8047,0 3px 8px rgba(15,157,88,.3)}
+.btn.sese-import-button:focus-visible{outline:3px solid #7fe0ae;outline-offset:2px}
+.btn.sese-import-button:disabled{opacity:.55;box-shadow:none}
+.excel-mark{background:#0f9d58!important;color:#fff!important;font-weight:700}
+html[data-theme=dark] .btn.sese-import-button{background:#12a35d;border-color:#19c373;box-shadow:0 2px 0 #0b8047,0 6px 18px rgba(18,163,93,.45)}
 </style><script id="sese-horizontal-controls-script">
 (() => {
   const containerSelector = '[data-slot="table-container"]';
