@@ -1350,7 +1350,7 @@ function seseReadEmployees(sheet, sheetName) {
   // Accept both the standard template header on row 3 and source sheets whose header is on row 1.
   const headerRowIndex = [0, 2].find(index => isEmployeeHeader(rows[index]));
   const hasHeader = headerRowIndex !== undefined;
-  const headers = hasHeader ? rows[headerRowIndex].map(canonical) : columns.slice(0, 8).map(canonical);
+  const headers = hasHeader ? rows[headerRowIndex].map(canonical) : ["Matr\xEDcula", "Chapa Volkswagen", "Nome", "Admiss\xE3o", "Cargo Atual", "Turno", "Carta de Versatilidade", "Respons\xE1vel"].map(canonical);
   const dataStart = hasHeader ? headerRowIndex + 1 : 2;
   if (hasHeader) {
     if (!headers.some(name => ["id", "matricula", "chapa volkswagen"].includes(name))) {
@@ -1394,7 +1394,7 @@ function seseReadEmployees(sheet, sheetName) {
       admissionDate: yh(get("Admissão"), true),
       role: At(get("Cargo Atual")),
       shift: At(get("Turno")),
-      versatility: At(get("Departamento")) || At(get("Setor")) || At(get("Carta de Versatilidade")),
+      versatility: At(get("Departamento")) || At(get("Setor")),
       responsible: At(get("Responsável")),
       ...(At(get("ID_Departamento")) ? {departmentId: At(get("ID_Departamento"))} : {}),
       ...(headers.includes(canonical("Cursos_Pre_Requisito")) ? {prerequisiteTrainingIds: seseIdList(get("Cursos_Pre_Requisito"))} : {})
@@ -1585,7 +1585,7 @@ function AM(e, t, a) {
     if(!departmentId) {
       const name=sheetDepartment || "SEM DEPARTAMENTO";
       const departments=[...o.departments,...t.departments];
-      departmentId=seseCardDepartment(departments,name)?.id;
+      departmentId=departments.find(item=>seseSameName(item.name,name))?.id;
       if(!departmentId) {
         departmentId=seseMoDeptId(name);
         if(departments.some(item=>item.id===departmentId)) departmentId=seseId();
