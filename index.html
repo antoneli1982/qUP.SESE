@@ -990,7 +990,7 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
   return /*#__PURE__*/_jsxs("div", { className: "sese-poly", children: [
     /*#__PURE__*/_jsxs("div", { className: "sese-poly-toolbar", children: [
       /*#__PURE__*/_jsxs("div", { children: [
-        /*#__PURE__*/_jsx("h2", { children: "Matriz de polival\xEAncia do departamento" }),
+        /*#__PURE__*/_jsxs("h2", { className: "sese-poly-heading", children: [/*#__PURE__*/_jsx("span", { className: "sese-poly-open-icon", children: /*#__PURE__*/_jsx(dn, { size: 20 }) }), "Matriz de polival\xEAncia \u2014 " + department.name] }),
         /*#__PURE__*/_jsx("p", { children: "Voc\xEA define os cursos de cada matriz. O n\xEDvel vem dos cursos que o colaborador possui e pode ser ajustado clicando no c\xEDrculo." })
       ] }),
       /*#__PURE__*/_jsxs("div", { className: "sese-poly-actions", children: [
@@ -2642,6 +2642,7 @@ function Rh() {
     next.courseLevels = (next.courseLevels || []).filter(item => !(item.employeeId === employeeId && item.trainingId === trainingId));
     if (level !== null) next.courseLevels.push({ employeeId, trainingId, level });
   });
+  const sesePolyGo = id => { setSesePolyDept(id); setTimeout(() => { const panel = document.getElementById("sese-poly-anchor"); if (!panel) return; panel.scrollIntoView({ behavior: "smooth", block: "start" }); panel.classList.remove("sese-poly-flash"); void panel.offsetWidth; panel.classList.add("sese-poly-flash"); }, 60); };
   const SESE_FIELD_LABELS = { name: "nome", registration: "matr\xEDcula", vwBadge: "chapa VW", admissionDate: "admiss\xE3o", role: "cargo atual", shift: "turno", versatility: "carta de versatilidade", responsible: "respons\xE1vel" };
   const seseCell = (person, field, children) => (0, A.jsx)(SeseEditableCell, { value: person[field] || "", type: field === "admissionDate" ? "date" : "text", maxLength: field === "registration" || field === "vwBadge" ? 100 : 140, label: SESE_FIELD_LABELS[field] + " de " + person.name, options: seseFieldOptions(field), onSave: value => seseSaveField(person.id, field, value), children }, person.id + "|" + field);
   function ot(S, M, T = {}) {
@@ -3683,7 +3684,7 @@ function Rh() {
                   children: (0, A.jsx)(nl, {
                     size: 23
                   })
-                }), Wl("department", S.id, S.name)]
+                }), (0,A.jsxs)("span",{className:"sese-poly-top",children:[(0,A.jsx)("button",{type:"button",className:"icon-button sese-poly-top-button","aria-label":"Abrir a matriz de polival\xEAncia de "+S.name,title:"Matriz de polival\xEAncia",onClick:()=>sesePolyGo(S.id),children:(0,A.jsx)(dn,{size:18})}), Wl("department", S.id, S.name)]})]
               }), (0, A.jsx)("h2", {
                 children: S.name
               }), (0, A.jsx)("p", {
@@ -3695,7 +3696,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsx)("button",{type:"button",className:"add-task sese-poly-open",onClick:()=>{setSesePolyDept(S.id);setTimeout(()=>document.getElementById("sese-poly-anchor")?.scrollIntoView({behavior:"smooth",block:"start"}),60);},children:"\u25D5 Ver matriz de polival\xEAncia"}), (0,A.jsxs)("section",{className:"sese-department-trainings sese-department-cards",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CARTAS DE VERSATILIDADE"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar carta de versatilidade ao departamento "+S.name,title:"Adicionar carta de versatilidade",onClick:()=>ot("department",S.id,{versatilityCards:[...(S.versatilityCards||[]).map(card=>({o:card,v:card})),{o:"",v:""}]}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),(S.versatilityCards||[]).length?(0,A.jsx)("ul",{className:"sese-card-list",children:S.versatilityCards.map(card=>(0,A.jsxs)("li",{children:[(0,A.jsx)("span",{children:card}),(0,A.jsxs)("button",{type:"button",className:"text-link",title:"Ver os colaboradores desta carta",onClick:()=>{Ht("employees");p(S.id);setSeseCard(card);},children:[e.employees.filter(M=>seseSameName(M.versatility,card)).length," colab."]})]},card))}):(0,A.jsx)("p",{className:"muted",children:"Nenhuma carta cadastrada."})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do departamento "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de polival\xEAncia"}),(0,A.jsx)("small",{children:(S.matrixCourses||[]).length?(S.matrixCourses.length+" curso"+(S.matrixCourses.length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Escolha os cursos e monte a matriz"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings sese-department-cards",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CARTAS DE VERSATILIDADE"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar carta de versatilidade ao departamento "+S.name,title:"Adicionar carta de versatilidade",onClick:()=>ot("department",S.id,{versatilityCards:[...(S.versatilityCards||[]).map(card=>({o:card,v:card})),{o:"",v:""}]}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),(S.versatilityCards||[]).length?(0,A.jsx)("ul",{className:"sese-card-list",children:S.versatilityCards.map(card=>(0,A.jsxs)("li",{children:[(0,A.jsx)("span",{children:card}),(0,A.jsxs)("button",{type:"button",className:"text-link",title:"Ver os colaboradores desta carta",onClick:()=>{Ht("employees");p(S.id);setSeseCard(card);},children:[e.employees.filter(M=>seseSameName(M.versatility,card)).length," colab."]})]},card))}):(0,A.jsx)("p",{className:"muted",children:"Nenhuma carta cadastrada."})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do departamento "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO DEPARTAMENTO"
               }), (0, A.jsxs)("div", {
@@ -4184,9 +4185,26 @@ html[data-theme=dark] [data-slot="table-container"]:fullscreen,html[data-theme=d
 @media print{.sese-course-panel{break-inside:avoid}}
 </style><style id="sese-poly-style">
 .sese-poly-panel{padding:1.25rem;min-width:0;scroll-margin-top:5rem}
-.sese-poly-open{margin-top:12px}
+.sese-poly-open{display:flex;align-items:center;gap:12px;width:100%;margin:16px 0 4px;padding:12px 14px;border:1px solid #0066ff;border-radius:10px;background:rgba(0,102,255,.08);color:inherit;text-align:left;cursor:pointer;transition:background .15s ease}
+.sese-poly-open:hover{background:rgba(0,102,255,.16)}
+.sese-poly-open:focus-visible{outline:3px solid #74a9f5;outline-offset:2px}
+.sese-poly-open-icon{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:9px;background:#0066ff;color:#fff}
+.sese-poly-open-text{flex:1;min-width:0;display:grid;gap:2px}
+.sese-poly-open-text strong{font-size:.9375rem;font-weight:600}
+.sese-poly-open-text small{font-size:.75rem;color:var(--muted-foreground,#64748b)}
+.sese-poly-open-arrow{flex:none;font-size:1.1rem;color:#0066ff}
+html[data-theme=dark] .sese-poly-open{border-color:#4d8dff;background:rgba(77,141,255,.14)}
+html[data-theme=dark] .sese-poly-open-arrow{color:#8fb8ff}
+.sese-poly-top{display:inline-flex;align-items:center;gap:4px}
+.sese-poly-top-button{color:#0066ff}
+html[data-theme=dark] .sese-poly-top-button{color:#8fb8ff}
+.sese-poly-panel{border-top:4px solid #0066ff}
+.sese-poly-flash{animation:sesePolyFlash 1.4s ease-out}
+@keyframes sesePolyFlash{0%{box-shadow:0 0 0 4px rgba(0,102,255,.55)}100%{box-shadow:0 0 0 4px rgba(0,102,255,0)}}
+@media(prefers-reduced-motion:reduce){.sese-poly-flash{animation:none}}
 .sese-poly-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:.75rem 1rem;margin-bottom:1rem}
-.sese-poly-toolbar h2{font-size:1.05rem;font-weight:600;margin:0}
+.sese-poly-toolbar h2{font-size:1.15rem;font-weight:600;margin:0;display:flex;align-items:center;gap:10px}
+.sese-poly-heading .sese-poly-open-icon{width:36px;height:36px}
 .sese-poly-toolbar p{font-size:.8125rem;color:var(--muted-foreground,#64748b);margin:.25rem 0 0;max-width:60ch}
 .sese-poly-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
 .sese-poly-select,.sese-poly-button,.sese-poly-search{min-height:38px;padding:6px 12px;border:1px solid var(--ui-border,#cbd8e9);border-radius:8px;background:var(--card,#fff);color:inherit;font:inherit;font-size:.8125rem}
