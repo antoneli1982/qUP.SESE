@@ -164,7 +164,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       throw new Error("Formato inválido dos registros recebidos do Firebase.");
     }
     const normalized = { ...data };
-    for (const key of ["departments", "employees", "tasks", "evaluations", "trainings", "trainingCatalog", "departmentTrainings", "absences"]) {
+    for (const key of ["departments", "employees", "tasks", "evaluations", "trainings", "trainingCatalog", "departmentTrainings", "absences", "courseLevels"]) {
       if (normalized[key] == null) normalized[key] = [];
     }
     return { ...payload, data: normalized };
@@ -552,8 +552,15 @@ var Br = We.string().min(1).max(100),
       name: ZA,
       description: We.string().max(1e3),
       versatilityCards: We.array(We.string().trim().min(1).max(140)).max(500).default([]),
-      prerequisiteTrainingIds: We.array(Br).max(1000).default([])
+      prerequisiteTrainingIds: We.array(Br).max(1000).default([]),
+      matrixCourses: We.array(We.object({ trainingId: Br, demand: We.number().int().min(0).max(9999).default(0) })).max(300).default([]),
+      matrixPreparedBy: We.string().max(140).default(""),
+      matrixVerifiedBy: We.string().max(140).default(""),
+      matrixApprovedBy: We.string().max(140).default(""),
+      matrixIssueDate: We.string().max(20).default(""),
+      matrixRevisionDate: We.string().max(20).default("")
     })).max(200),
+    courseLevels: We.array(We.object({ employeeId: Br, trainingId: Br, level: We.number().int().min(0).max(4) })).max(200000).default([]),
     employees: We.array(We.object({
       id: Br,
       name: ZA,
@@ -616,13 +623,13 @@ var Br = We.string().min(1).max(100),
       r = new Set(e.employees.map(l => l.id)),
       n = new Set(e.tasks.map(l => l.id));
     [...e.employees, ...e.tasks].some(l => !o.has(l.departmentId)) && a("Departamento n\xE3o encontrado."), e.trainings.some(l => !r.has(l.employeeId)) && a("Colaborador n\xE3o encontrado."), e.evaluations.some(l => !r.has(l.employeeId) || !n.has(l.taskId)) && a("Avalia\xE7\xE3o sem colaborador ou atividade.");
-  }).transform(e => seseApplyVersatility(e)),
+  }).transform(e => seseApplyVersatility(sesePrunePoly(e))),
   Bn = () => ({
     departments: [],
     employees: [],
     tasks: [],
     evaluations: [],
-    trainings: [],trainingCatalog:[],departmentTrainings:[],absences:[]
+    trainings: [],trainingCatalog:[],departmentTrainings:[],absences:[],courseLevels:[]
   }),
   Xo = () => new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo"
@@ -664,14 +671,127 @@ function seseDepartmentPrerequisiteIds(data, departmentId) {
   const legacy = (data.departmentTrainings || []).filter(item => item.departmentId === departmentId).map(item => item.trainingId);
   return [...new Set([...ids, ...legacy])].filter(id => data.trainingCatalog.some(item => item.id === id));
 }
+// Identifica o curso de um treinamento realizado: o vínculo com o catálogo ou, na falta dele, o mesmo título.
+function seseRecordCourseKey(data, record) {
+  if (record.templateId && data.trainingCatalog.some(item => item.id === record.templateId)) return record.templateId;
+  const sameTitle = data.trainingCatalog.find(item => seseSameName(item.title, record.title));
+  return sameTitle ? sameTitle.id : "titulo:" + seseText(record.title).trim();
+}
 function seseEmployeeCourseIds(data, employeeId) {
   const employee = data.employees.find(item => item.id === employeeId);
   const ids = new Set(employee?.prerequisiteTrainingIds || []);
   for (const record of data.trainings.filter(item => item.employeeId === employeeId)) {
-    if (!record.templateId) continue;
-    if (!record.expiry || record.expiry >= Xo()) ids.add(record.templateId);
+    if (!record.expiry || record.expiry >= Xo()) ids.add(seseRecordCourseKey(data, record));
   }
   return ids;
+}
+// Matriz de competências do departamento: colaboradores do departamento × cursos (pré-requisitos + cursos que a equipe possui).
+function seseDepartmentCourseMatrix(data, departmentId) {
+  const byName = (a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+  const byTitle = (a, b) => a.title.localeCompare(b.title, "pt-BR", { sensitivity: "base" });
+  const employees = data.employees.filter(item => item.departmentId === departmentId && !seseAbsence(data, item.id).active).sort(byName);
+  const employeeIds = new Set(employees.map(item => item.id));
+  const catalog = new Map(data.trainingCatalog.map(item => [item.id, item]));
+  const requiredIds = seseDepartmentPrerequisiteIds(data, departmentId);
+  const required = requiredIds.map(id => ({ key: id, title: catalog.get(id).title, description: catalog.get(id).description || "", required: true })).sort(byTitle);
+  const extras = new Map();
+  const records = new Map();
+  for (const record of data.trainings) {
+    if (!employeeIds.has(record.employeeId)) continue;
+    const key = seseRecordCourseKey(data, record);
+    const slot = record.employeeId + "|" + key;
+    records.set(slot, [...(records.get(slot) || []), record]);
+    if (!requiredIds.includes(key) && !extras.has(key)) extras.set(key, { key, title: catalog.get(key)?.title || record.title, description: catalog.get(key)?.description || "", required: false });
+  }
+  for (const employee of employees) for (const id of employee.prerequisiteTrainingIds || []) {
+    if (catalog.has(id) && !requiredIds.includes(id) && !extras.has(id)) extras.set(id, { key: id, title: catalog.get(id).title, description: catalog.get(id).description || "", required: false });
+  }
+  const columns = [...required, ...[...extras.values()].sort(byTitle)];
+  const today = Xo();
+  const status = (employee, column) => {
+    const list = records.get(employee.id + "|" + column.key) || [];
+    const valid = list.filter(item => !item.expiry || item.expiry >= today);
+    if (valid.length) {
+      // Sem vencimento prevalece; senão, vale o vencimento mais distante.
+      const expiry = valid.some(item => !item.expiry) ? "" : valid.map(item => item.expiry).sort().pop();
+      const state = Vr(expiry);
+      const soon = state.key === "week" || state.key === "month";
+      return { key: soon ? "soon" : "ok", has: true, mark: "\u2713", label: expiry ? (soon ? state.label : "At\xE9 " + Ql(expiry)) : "Sem vencimento", text: soon ? "Possui \xB7 vence em breve" : "Possui", expiry };
+    }
+    if ((employee.prerequisiteTrainingIds || []).includes(column.key)) return { key: "ok", has: true, mark: "\u2713", label: "No cadastro", text: "Possui", expiry: "" };
+    if (list.length) {
+      const expiry = list.map(item => item.expiry).sort().pop();
+      return { key: "expired", has: false, mark: "!", label: "Vencido " + Ql(expiry), text: "Vencido", expiry };
+    }
+    return column.required ? { key: "pending", has: false, mark: "\u2715", label: "Pendente", text: "Pendente", expiry: "" } : { key: "none", has: false, mark: "\u2014", label: "", text: "N\xE3o possui", expiry: "" };
+  };
+  return { employees, columns, required, status };
+}
+function SeseCourseMatrix({ data, departmentId = "all", cell, onOpen }) {
+  const departments = data.departments.filter(department => departmentId === "all" || department.id === departmentId).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  if (!departments.length) return null;
+  return /*#__PURE__*/_jsxs("div", { className: "sese-course-matrix", children: [
+    /*#__PURE__*/_jsxs("div", { className: "sese-course-intro", children: [
+      /*#__PURE__*/_jsxs("div", { children: [
+        /*#__PURE__*/_jsx("h2", { children: "Matriz de compet\xEAncias por cursos" }),
+        /*#__PURE__*/_jsx("p", { children: "Uma matriz para cada departamento: os colaboradores da \xE1rea cruzados com os cursos de pr\xE9-requisito e com os demais cursos que eles possuem." })
+      ] }),
+      /*#__PURE__*/_jsxs("div", { className: "sese-aptitude-legend", children: [
+        /*#__PURE__*/_jsx("span", { className: "sese-course-key ok", children: "\u2713 Possui" }),
+        /*#__PURE__*/_jsx("span", { className: "sese-course-key soon", children: "\u2713 Vence em at\xE9 30 dias" }),
+        /*#__PURE__*/_jsx("span", { className: "sese-course-key expired", children: "! Vencido" }),
+        /*#__PURE__*/_jsx("span", { className: "sese-course-key pending", children: "\u2715 Pr\xE9-requisito pendente" }),
+        /*#__PURE__*/_jsx("span", { className: "sese-course-key none", children: "\u2014 N\xE3o possui" })
+      ] })
+    ] }),
+    departments.map(department => {
+      const matrix = seseDepartmentCourseMatrix(data, department.id);
+      const extra = matrix.columns.length - matrix.required.length;
+      return /*#__PURE__*/_jsxs("section", { className: "panel sese-aptitude-panel sese-course-panel", children: [
+        /*#__PURE__*/_jsx("div", { className: "panel-heading", children: /*#__PURE__*/_jsxs("div", { children: [
+          /*#__PURE__*/_jsx("h2", { children: department.name }),
+          /*#__PURE__*/_jsx("p", { children: `${matrix.employees.length} colaborador${matrix.employees.length === 1 ? "" : "es"} \xB7 ${matrix.required.length} curso${matrix.required.length === 1 ? "" : "s"} de pr\xE9-requisito \xB7 ${extra} outro${extra === 1 ? "" : "s"} curso${extra === 1 ? "" : "s"} da equipe` })
+        ] }) }),
+        !matrix.employees.length ? /*#__PURE__*/_jsx("p", { className: "sese-course-empty", children: "Nenhum colaborador ativo neste departamento." })
+        : !matrix.columns.length ? /*#__PURE__*/_jsx("p", { className: "sese-course-empty", children: "Nenhum curso para cruzar ainda. Defina os cursos de pr\xE9-requisito em Departamentos ou registre os treinamentos realizados pelos colaboradores." })
+        : /*#__PURE__*/_jsx("div", { className: "sese-aptitude-table-wrap", children: /*#__PURE__*/_jsxs("table", { className: "sese-aptitude-table sese-course-table", children: [
+          /*#__PURE__*/_jsx("thead", { children: /*#__PURE__*/_jsxs("tr", { children: [
+            /*#__PURE__*/_jsx("th", { children: "Nome" }),
+            /*#__PURE__*/_jsx("th", { className: "sese-matrix-info", children: "Carta de Versatilidade" }),
+            matrix.columns.map(column => {
+              const count = matrix.employees.filter(employee => matrix.status(employee, column).has).length;
+              return /*#__PURE__*/_jsx("th", { className: "sese-course-head" + (column.required ? " required" : ""), title: (column.required ? "Pr\xE9-requisito do departamento. " : "") + (column.description || ""), "data-note": (column.required ? "Pr\xE9-requisito \xB7 " : "") + `${count}/${matrix.employees.length} possuem`, children: /*#__PURE__*/_jsx("span", { children: column.title }) }, column.key);
+            }),
+            /*#__PURE__*/_jsx("th", { children: "Aptid\xE3o" })
+          ] }) }),
+          /*#__PURE__*/_jsx("tbody", { children: matrix.employees.map(employee => {
+            const score = seseDepartmentAptitude(data, employee.id, department.id);
+            const refresh = seseAbsence(data, employee.id).needsRefresh;
+            const person = /*#__PURE__*/_jsxs("button", { type: "button", className: "person-cell", onClick: () => onOpen && onOpen(employee.id), children: [
+              /*#__PURE__*/_jsx(JA, { name: employee.name }),
+              /*#__PURE__*/_jsxs("span", { children: [/*#__PURE__*/_jsx("strong", { children: employee.name }), /*#__PURE__*/_jsx("small", { children: refresh ? "Reciclagem pendente \xB7 afastamento maior que 45 dias" : employee.role || "Sem cargo informado" })] })
+            ] });
+            return /*#__PURE__*/_jsxs("tr", { className: refresh ? "sese-refresh-row" : "", children: [
+              /*#__PURE__*/_jsx("td", { children: cell ? cell(employee, "name", person) : person }),
+              /*#__PURE__*/_jsx("td", { className: "sese-matrix-info", children: cell ? cell(employee, "versatility") : employee.versatility || "\u2014" }),
+              matrix.columns.map(column => {
+                const state = matrix.status(employee, column);
+                return /*#__PURE__*/_jsx("td", { children: /*#__PURE__*/_jsxs("button", { type: "button", className: "sese-course-cell " + state.key, "aria-label": `${employee.name}, ${column.title}: ${state.text}${state.expiry ? ", vencimento " + Ql(state.expiry) : ""}. Ver treinamentos.`, title: `${column.title}: ${state.text} \xB7 Clique para ver os treinamentos do colaborador`, onClick: () => onOpen && onOpen(employee.id), children: [
+                  /*#__PURE__*/_jsx("strong", { children: state.mark }),
+                  state.label && /*#__PURE__*/_jsx("small", { children: state.label })
+                ] }) }, column.key);
+              }),
+              /*#__PURE__*/_jsx("td", { children: /*#__PURE__*/_jsxs("div", { className: "sese-aptitude-cell " + score.tone, children: [
+                /*#__PURE__*/_jsx("strong", { children: score.percent === null ? "\u2014" : score.percent + "%" }),
+                /*#__PURE__*/_jsx("small", { children: score.required ? `${score.matched}/${score.required} \xB7 ${score.label}` : score.label }),
+                score.percent !== null && /*#__PURE__*/_jsx("span", { className: "sese-aptitude-bar", children: /*#__PURE__*/_jsx("i", { style: { width: score.percent + "%" } }) })
+              ] }) })
+            ] }, employee.id);
+          }) })
+        ] }) })
+      ] }, department.id);
+    })
+  ] });
 }
 function seseDepartmentAptitude(data, employeeId, departmentId) {
   const required = seseDepartmentPrerequisiteIds(data, departmentId);
@@ -720,6 +840,227 @@ function SeseAptitudeMatrix({ data, departmentId = "all", cell }) {
         ] }) }, employee.id + "|" + department.id); })
       ] }, employee.id)) })
     ] }) })
+  ] });
+}
+// ===== Matriz de polivalência por departamento (formato "Matriz Operacional") =====
+const SESE_LEVELS = ["N\xE3o executa atividade", "Em treinamento", "Conhece, mas precisa de ajuda", "Treinado", "Treinador / multiplicador"];
+const SESE_POLY_OBS = "OBS 1 - Os colaboradores que estiverem afastados dever\xE3o ser identificados com a c\xE9lula da chapa colorida de vermelho e, ap\xF3s o seu retorno, passar por reciclagem. OBS 2 - Se houver evid\xEAncia de falha na qualidade do produto por m\xE3o de obra, o colaborador passar\xE1 por reciclagem.";
+// Remove vínculos da matriz que apontam para cursos ou colaboradores que não existem mais.
+function sesePrunePoly(data) {
+  if (!data || !Array.isArray(data.departments)) return data;
+  const catalog = new Set((data.trainingCatalog || []).map(item => item.id));
+  const people = new Set((data.employees || []).map(item => item.id));
+  const seenLevels = new Set();
+  return {
+    ...data,
+    departments: data.departments.map(item => {
+      const seen = new Set();
+      return { ...item, matrixCourses: (item.matrixCourses || []).filter(link => catalog.has(link.trainingId) && !seen.has(link.trainingId) && seen.add(link.trainingId)) };
+    }),
+    courseLevels: (data.courseLevels || []).filter(item => catalog.has(item.trainingId) && people.has(item.employeeId) && !seenLevels.has(item.employeeId + "|" + item.trainingId) && seenLevels.add(item.employeeId + "|" + item.trainingId))
+  };
+}
+function sesePolyMatrix(data, departmentId) {
+  const department = data.departments.find(item => item.id === departmentId);
+  if (!department) return null;
+  const catalog = new Map(data.trainingCatalog.map(item => [item.id, item]));
+  const courses = (department.matrixCourses || []).filter(link => catalog.has(link.trainingId)).map(link => ({ id: link.trainingId, title: catalog.get(link.trainingId).title, demand: Number(link.demand) || 0 }));
+  const employees = data.employees.filter(item => item.departmentId === departmentId).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  const ids = new Set(employees.map(item => item.id));
+  const wanted = new Set(courses.map(item => item.id));
+  const today = Xo();
+  const records = new Map();
+  for (const record of data.trainings) {
+    if (!ids.has(record.employeeId)) continue;
+    const key = seseRecordCourseKey(data, record);
+    if (!wanted.has(key)) continue;
+    const slot = record.employeeId + "|" + key;
+    records.set(slot, [...(records.get(slot) || []), record]);
+  }
+  const manual = new Map((data.courseLevels || []).filter(item => ids.has(item.employeeId)).map(item => [item.employeeId + "|" + item.trainingId, item.level]));
+  const level = (employee, course) => {
+    const slot = employee.id + "|" + course.id;
+    const list = records.get(slot) || [];
+    const valid = list.some(item => !item.expiry || item.expiry >= today) || (employee.prerequisiteTrainingIds || []).includes(course.id);
+    const expiry = !valid && list.length ? list.map(item => item.expiry).sort().pop() : "";
+    const auto = valid ? 3 : 0;
+    return manual.has(slot) ? { level: manual.get(slot), manual: true, auto, expired: false, expiry } : { level: auto, manual: false, auto, expired: !!expiry, expiry };
+  };
+  const absence = employee => {
+    const state = seseAbsence(data, employee.id);
+    const last = (data.absences || []).filter(item => item.employeeId === employee.id).sort((a, b) => a.startDate.localeCompare(b.startDate)).pop();
+    return { flagged: !!state.active || state.needsRefresh, active: !!state.active, start: last?.startDate || "", end: last?.endDate || "" };
+  };
+  const trained = course => employees.filter(employee => !seseAbsence(data, employee.id).active && level(employee, course).level >= 3).length;
+  return { department, courses, employees, level, absence, trained };
+}
+function SeseBall({ level = 0, size = 22 }) {
+  const fill = [null, "M11 11 L11 2 A9 9 0 0 1 20 11 Z", "M11 2 A9 9 0 0 1 11 20 Z", "M11 11 L11 2 A9 9 0 1 1 2 11 Z"][level];
+  return /*#__PURE__*/_jsxs("svg", { className: "sese-ball", width: size, height: size, viewBox: "0 0 22 22", "aria-hidden": "true", children: [
+    /*#__PURE__*/_jsx("circle", { cx: 11, cy: 11, r: 9, className: level === 4 ? "sese-ball-full" : "sese-ball-ring" }),
+    fill && /*#__PURE__*/_jsx("path", { d: fill, className: "sese-ball-fill" })
+  ] });
+}
+function SesePolyInput({ value = "", type = "text", label, onSave, disabled, min, max, maxLength = 140, className = "" }) {
+  const [draft, setDraft] = Be.useState(value ?? "");
+  Be.useEffect(() => { setDraft(value ?? ""); }, [value]);
+  const commit = () => { if (String(draft ?? "") !== String(value ?? "")) onSave(draft); };
+  return /*#__PURE__*/_jsx("input", { className: "sese-poly-input " + className, type, value: draft, min, max, maxLength: type === "text" ? maxLength : void 0, disabled, "aria-label": label, title: label, onChange: event => setDraft(event.target.value), onBlur: commit, onKeyDown: event => { if (event.key === "Enter") event.currentTarget.blur(); else if (event.key === "Escape") setDraft(value ?? ""); } });
+}
+function SesePolyCourses({ data, department, onClose, onSave }) {
+  const current = (department.matrixCourses || []).map(item => item.trainingId);
+  const [selected, setSelected] = Be.useState(current.length ? current : seseDepartmentPrerequisiteIds(data, department.id));
+  const [query, setQuery] = Be.useState(""), [busy, setBusy] = Be.useState(false);
+  Be.useEffect(() => { const onKey = event => { if (event.key === "Escape") onClose(); }; document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey); }, []);
+  const catalog = [...data.trainingCatalog].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  const titles = new Map(catalog.map(item => [item.id, item.title]));
+  const found = catalog.filter(item => seseMatches(item, query));
+  const toggle = id => setSelected(list => list.includes(id) ? list.filter(item => item !== id) : [...list, id]);
+  const move = (index, step) => setSelected(list => { const next = [...list], target = index + step; if (target < 0 || target >= next.length) return list; [next[index], next[target]] = [next[target], next[index]]; return next; });
+  const save = async () => { setBusy(true); const demand = new Map((department.matrixCourses || []).map(item => [item.trainingId, item.demand || 0])); const ok = await onSave(selected.map(id => ({ trainingId: id, demand: demand.get(id) || 0 }))); setBusy(false); if (ok) onClose(); };
+  return /*#__PURE__*/_jsx("div", { className: "sese-poly-overlay", onMouseDown: event => { if (event.target === event.currentTarget) onClose(); }, children: /*#__PURE__*/_jsxs("div", { className: "sese-poly-dialog", role: "dialog", "aria-modal": "true", "aria-label": "Cursos da matriz de " + department.name, children: [
+    /*#__PURE__*/_jsxs("header", { children: [
+      /*#__PURE__*/_jsxs("div", { children: [/*#__PURE__*/_jsx("h2", { children: "Cursos da matriz" }), /*#__PURE__*/_jsx("p", { children: "Escolha quais cursos do cadastro de treinamentos formam as colunas da matriz de " + department.name + " e em que ordem aparecem." })] }),
+      /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button", "aria-label": "Fechar", onClick: onClose, children: "✕" })
+    ] }),
+    !catalog.length ? /*#__PURE__*/_jsx("p", { className: "sese-poly-empty", children: "Ainda n\xE3o h\xE1 cursos no Cadastro de treinamentos. Cadastre os cursos l\xE1 e volte para montar a matriz." }) : /*#__PURE__*/_jsxs("div", { className: "sese-poly-pick", children: [
+      /*#__PURE__*/_jsxs("div", { children: [
+        /*#__PURE__*/_jsxs("strong", { children: ["Cadastro de treinamentos (", catalog.length, ")"] }),
+        /*#__PURE__*/_jsx("input", { className: "sese-poly-search", type: "search", placeholder: "Pesquisar curso ou #tag…", "aria-label": "Pesquisar curso", value: query, autoFocus: true, onChange: event => setQuery(event.target.value) }),
+        /*#__PURE__*/_jsxs("div", { className: "sese-poly-list", children: [
+          found.map(item => /*#__PURE__*/_jsxs("label", { children: [/*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), onChange: () => toggle(item.id) }), /*#__PURE__*/_jsx("span", { children: item.title })] }, item.id)),
+          !found.length && /*#__PURE__*/_jsx("p", { className: "muted", children: "Nenhum curso encontrado." })
+        ] }),
+        /*#__PURE__*/_jsxs("div", { className: "sese-poly-quick", children: [
+          /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", onClick: () => setSelected(list => [...list, ...found.map(item => item.id).filter(id => !list.includes(id))]), children: "Marcar os listados" }),
+          /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", onClick: () => setSelected([]), children: "Desmarcar todos" })
+        ] })
+      ] }),
+      /*#__PURE__*/_jsxs("div", { children: [
+        /*#__PURE__*/_jsxs("strong", { children: ["Colunas da matriz (", selected.length, ")"] }),
+        /*#__PURE__*/_jsxs("div", { className: "sese-poly-list sese-poly-order", children: [
+          selected.map((id, index) => /*#__PURE__*/_jsxs("div", { children: [
+            /*#__PURE__*/_jsxs("span", { children: [index + 1, ". ", titles.get(id) || id] }),
+            /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button", disabled: index === 0, "aria-label": "Mover " + (titles.get(id) || "") + " para cima", onClick: () => move(index, -1), children: "↑" }),
+            /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button", disabled: index === selected.length - 1, "aria-label": "Mover " + (titles.get(id) || "") + " para baixo", onClick: () => move(index, 1), children: "↓" }),
+            /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button danger", "aria-label": "Remover " + (titles.get(id) || "") + " da matriz", onClick: () => toggle(id), children: "✕" })
+          ] }, id)),
+          !selected.length && /*#__PURE__*/_jsx("p", { className: "muted", children: "Marque os cursos ao lado para criar as colunas." })
+        ] })
+      ] })
+    ] }),
+    /*#__PURE__*/_jsxs("footer", { children: [
+      /*#__PURE__*/_jsx("button", { type: "button", className: "sese-poly-button", onClick: onClose, children: "Cancelar" }),
+      /*#__PURE__*/_jsx("button", { type: "button", className: "sese-poly-button primary", disabled: busy || !catalog.length, onClick: save, children: busy ? "Salvando…" : "Salvar cursos da matriz" })
+    ] })
+  ] }) });
+}
+function sesePolyPrint(node) {
+  if (!node) return;
+  document.getElementById("sese-poly-print")?.remove();
+  const holder = document.createElement("div");
+  holder.id = "sese-poly-print";
+  const copy = node.cloneNode(true);
+  // No papel, os campos viram texto simples (datas em DD/MM/AAAA).
+  const originals = node.querySelectorAll("input");
+  copy.querySelectorAll("input").forEach((input, index) => {
+    const value = originals[index]?.value || "", text = document.createElement("span");
+    text.className = "sese-poly-print-value";
+    text.textContent = input.type === "date" ? (value ? Ql(value) : "____/____/______") : value;
+    input.replaceWith(text);
+  });
+  holder.appendChild(copy);
+  document.body.appendChild(holder);
+  document.documentElement.classList.add("sese-poly-printing");
+  const done = () => { document.documentElement.classList.remove("sese-poly-printing"); holder.remove(); window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  setTimeout(() => window.print(), 50);
+}
+function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onSaveLevel, onOpen, disabled }) {
+  const [picking, setPicking] = Be.useState(false);
+  const sheet = Be.useRef(null);
+  const departments = [...data.departments].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
+  const department = departments.find(item => item.id === departmentId) || departments[0];
+  if (!department) return null;
+  const matrix = sesePolyMatrix(data, department.id);
+  const span = matrix.courses.length + 3;
+  const saveDemand = (course, value) => { const number = Math.max(0, Math.min(9999, Math.round(Number(value) || 0))); return onSaveDepartment(department.id, { matrixCourses: (department.matrixCourses || []).map(link => link.trainingId === course.id ? { ...link, demand: number } : link) }); };
+  const field = (key, label, type = "text") => /*#__PURE__*/_jsxs("label", { children: [/*#__PURE__*/_jsx("span", { children: label }), /*#__PURE__*/_jsx(SesePolyInput, { value: department[key] || "", type, label, disabled, onSave: value => onSaveDepartment(department.id, { [key]: String(value || "").trim() }) })] });
+  return /*#__PURE__*/_jsxs("div", { className: "sese-poly", children: [
+    /*#__PURE__*/_jsxs("div", { className: "sese-poly-toolbar", children: [
+      /*#__PURE__*/_jsxs("div", { children: [
+        /*#__PURE__*/_jsx("h2", { children: "Matriz de polival\xEAncia do departamento" }),
+        /*#__PURE__*/_jsx("p", { children: "Voc\xEA define os cursos de cada matriz. O n\xEDvel vem dos cursos que o colaborador possui e pode ser ajustado clicando no c\xEDrculo." })
+      ] }),
+      /*#__PURE__*/_jsxs("div", { className: "sese-poly-actions", children: [
+        /*#__PURE__*/_jsx("select", { className: "sese-poly-select", "aria-label": "Departamento da matriz", value: department.id, onChange: event => onDepartment(event.target.value), children: departments.map(item => /*#__PURE__*/_jsx("option", { value: item.id, children: item.name }, item.id)) }),
+        /*#__PURE__*/_jsx("button", { type: "button", className: "sese-poly-button primary", disabled, onClick: () => setPicking(true), children: "Escolher cursos" }),
+        /*#__PURE__*/_jsx("button", { type: "button", className: "sese-poly-button", onClick: () => sesePolyPrint(sheet.current), children: "Imprimir / PDF" })
+      ] })
+    ] }),
+    !matrix.courses.length && /*#__PURE__*/_jsxs("p", { className: "sese-poly-empty", children: ["Esta matriz ainda n\xE3o tem cursos. Use ", /*#__PURE__*/_jsx("strong", { children: "Escolher cursos" }), " para definir as colunas de ", department.name, "."] }),
+    /*#__PURE__*/_jsx("div", { className: "sese-poly-scroll", children: /*#__PURE__*/_jsxs("div", { className: "sese-poly-sheet", ref: sheet, children: [
+      /*#__PURE__*/_jsxs("table", { className: "sese-poly-table", children: [
+        /*#__PURE__*/_jsxs("thead", { children: [
+          /*#__PURE__*/_jsxs("tr", { children: [
+            /*#__PURE__*/_jsxs("th", { className: "sese-poly-sector", colSpan: 2, rowSpan: 3, children: ["SETOR ", department.name.toLocaleUpperCase("pt-BR")] }),
+            /*#__PURE__*/_jsx("th", { className: "sese-poly-title", colSpan: span, children: "MATRIZ OPERACIONAL" })
+          ] }),
+          /*#__PURE__*/_jsx("tr", { children: /*#__PURE__*/_jsx("th", { className: "sese-poly-subtitle", colSpan: span, children: "TREINAMENTOS" }) }),
+          /*#__PURE__*/_jsxs("tr", { className: "sese-poly-heads", children: [
+            /*#__PURE__*/_jsx("th", { className: "sese-poly-v plain", children: /*#__PURE__*/_jsx("span", { children: "ADMISS\xC3O" }) }),
+            matrix.courses.map(course => /*#__PURE__*/_jsx("th", { className: "sese-poly-v", title: course.title, children: /*#__PURE__*/_jsx("span", { children: course.title.toLocaleUpperCase("pt-BR") }) }, course.id)),
+            /*#__PURE__*/_jsx("th", { className: "sese-poly-v plain wide", children: /*#__PURE__*/_jsx("span", { children: "AFASTADOS" }) }),
+            /*#__PURE__*/_jsx("th", { className: "sese-poly-v plain wide", children: /*#__PURE__*/_jsx("span", { children: "RETORNO AFASTAMENTO" }) })
+          ] })
+        ] }),
+        /*#__PURE__*/_jsxs("tbody", { children: [
+          matrix.employees.map(employee => {
+            const away = matrix.absence(employee);
+            return /*#__PURE__*/_jsxs("tr", { children: [
+              /*#__PURE__*/_jsx("td", { className: "sese-poly-badge" + (away.flagged ? " away" : ""), title: away.active ? "Afastado" : away.flagged ? "Reciclagem pendente ap\xF3s afastamento" : void 0, children: employee.vwBadge || employee.registration || "—" }),
+              /*#__PURE__*/_jsx("td", { className: "sese-poly-name", children: /*#__PURE__*/_jsx("button", { type: "button", onClick: () => onOpen && onOpen(employee.id), title: "Ver treinamentos de " + employee.name, children: employee.name }) }),
+              /*#__PURE__*/_jsx("td", { className: "sese-poly-date", children: employee.admissionDate ? Ql(employee.admissionDate) : "" }),
+              matrix.courses.map(course => {
+                const state = matrix.level(employee, course);
+                const text = `${employee.name}, ${course.title}: n\xEDvel ${state.level} – ${SESE_LEVELS[state.level]}` + (state.manual ? " (definido manualmente)" : state.expired ? " (curso vencido em " + Ql(state.expiry) + ")" : " (autom\xE1tico pelos cursos)");
+                return /*#__PURE__*/_jsxs("td", { className: "sese-poly-cell" + (state.expired ? " expired" : "") + (state.manual ? " manual" : ""), title: text, children: [
+                  /*#__PURE__*/_jsx(SeseBall, { level: state.level }),
+                  /*#__PURE__*/_jsxs("select", { "aria-label": text, value: state.manual ? String(state.level) : "auto", disabled, onChange: event => onSaveLevel(employee.id, course.id, event.target.value === "auto" ? null : Number(event.target.value)), children: [
+                    /*#__PURE__*/_jsx("option", { value: "auto", children: "Autom\xE1tico pelos cursos (n\xEDvel " + state.auto + ")" }),
+                    SESE_LEVELS.map((label, index) => /*#__PURE__*/_jsx("option", { value: String(index), children: index + " – " + label }, index))
+                  ] })
+                ] }, course.id);
+              }),
+              /*#__PURE__*/_jsx("td", { className: "sese-poly-date", children: away.start ? Ql(away.start) : "____/____/______" }),
+              /*#__PURE__*/_jsx("td", { className: "sese-poly-date", children: away.end ? Ql(away.end) : "____/____/______" })
+            ] }, employee.id);
+          }),
+          !matrix.employees.length && /*#__PURE__*/_jsx("tr", { children: /*#__PURE__*/_jsx("td", { className: "sese-poly-none", colSpan: span + 2, children: "Nenhum colaborador neste departamento." }) })
+        ] }),
+        /*#__PURE__*/_jsxs("tfoot", { children: [
+          /*#__PURE__*/_jsx("tr", { children: /*#__PURE__*/_jsx("th", { className: "sese-poly-band", colSpan: span + 2, children: "AN\xC1LISE DE DEMANDA DE OPERA\xC7\xC3O" }) }),
+          /*#__PURE__*/_jsxs("tr", { children: [
+            /*#__PURE__*/_jsx("th", { className: "sese-poly-rowhead", colSpan: 3, children: "NECESSIDADE DE OPERADORES POR ATIVIDADE" }),
+            matrix.courses.map(course => /*#__PURE__*/_jsx("td", { className: "sese-poly-number", children: /*#__PURE__*/_jsx(SesePolyInput, { value: String(course.demand), type: "number", min: 0, max: 9999, disabled, label: "Necessidade de operadores em " + course.title, onSave: value => saveDemand(course, value) }) }, course.id)),
+            /*#__PURE__*/_jsx("td", { colSpan: 2 })
+          ] }),
+          /*#__PURE__*/_jsxs("tr", { children: [
+            /*#__PURE__*/_jsx("th", { className: "sese-poly-rowhead", colSpan: 3, children: "OPERADORES TREINADOS" }),
+            matrix.courses.map(course => { const count = matrix.trained(course); return /*#__PURE__*/_jsx("td", { className: "sese-poly-number" + (course.demand && count < course.demand ? " short" : ""), title: course.demand && count < course.demand ? "Abaixo da necessidade (" + course.demand + ")" : "Colaboradores ativos nos n\xEDveis 3 e 4", children: count }, course.id); }),
+            /*#__PURE__*/_jsx("td", { colSpan: 2 })
+          ] })
+        ] })
+      ] }),
+      /*#__PURE__*/_jsxs("div", { className: "sese-poly-foot", children: [
+        /*#__PURE__*/_jsxs("div", { className: "sese-poly-notes", children: [
+          /*#__PURE__*/_jsx("p", { children: SESE_POLY_OBS }),
+          /*#__PURE__*/_jsxs("div", { className: "sese-poly-sign", children: [field("matrixPreparedBy", "Elaborado por"), field("matrixVerifiedBy", "Verificado por"), field("matrixApprovedBy", "Aprovado por"), field("matrixIssueDate", "Data de emiss\xE3o", "date"), field("matrixRevisionDate", "Data de revis\xE3o", "date")] })
+        ] }),
+        /*#__PURE__*/_jsx("div", { className: "sese-poly-legend", children: SESE_LEVELS.map((label, index) => /*#__PURE__*/_jsxs("div", { children: [/*#__PURE__*/_jsx(SeseBall, { level: index, size: 26 }), /*#__PURE__*/_jsxs("strong", { children: ["N\xCDVEL ", index] }), /*#__PURE__*/_jsx("span", { children: label })] }, index)) })
+      ] })
+    ] }) }),
+    picking && /*#__PURE__*/_jsx(SesePolyCourses, { data, department, onClose: () => setPicking(false), onSave: links => onSaveDepartment(department.id, { matrixCourses: links }) })
   ] });
 }
 function HA(e, t = "all") {
@@ -816,20 +1157,25 @@ function uM() {
   })), t;
 }
 var cM = {
-  Departamentos: ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito", "Cartas_Versatilidade"],
+  Departamentos: ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito", "Cartas_Versatilidade", "Matriz_Elaborado_Por", "Matriz_Verificado_Por", "Matriz_Aprovado_Por", "Matriz_Data_Emissao", "Matriz_Data_Revisao"],
   Atividades: ["ID", "ID_Departamento", "Nome", "Descricao"],
   Colaboradores: ["Matrícula", "Chapa Volkswagen", "Nome", "Admissão", "Cargo Atual", "Turno", "Carta de Versatilidade", "Responsável", "ID", "ID_Departamento", "Cursos_Pre_Requisito"],
   Avaliacoes: ["ID_Colaborador", "ID_Atividade", "Nivel_Percentual", "Data"],
   Treinamentos: ["ID", "ID_Colaborador", "Titulo", "Descricao", "Carga_Horaria", "Data", "Vencimento", "ID_Treinamento_Geral", "Tags", "Interno", "Externo", "Homologado"],
   Treinamentos_Gerais:["ID","Titulo","Descricao","Carga_Horaria","Validade_Meses","Tags"],
   Treinamentos_Departamentos:["ID","ID_Departamento","ID_Treinamento_Geral"],
-  Afastamentos:["ID","ID_Colaborador","Inicio","Fim","Observacao","Reciclagem_Realizada","Data_Reciclagem"]
+  Afastamentos:["ID","ID_Colaborador","Inicio","Fim","Observacao","Reciclagem_Realizada","Data_Reciclagem"],
+  Matriz_Departamentos:["ID_Departamento","ID_Treinamento_Geral","Necessidade"],
+  Niveis_Cursos:["ID_Colaborador","ID_Treinamento_Geral","Nivel"]
 };
+const SESE_POLY_COLUMNS = [["Matriz_Elaborado_Por", "matrixPreparedBy"], ["Matriz_Verificado_Por", "matrixVerifiedBy"], ["Matriz_Aprovado_Por", "matrixApprovedBy"], ["Matriz_Data_Emissao", "matrixIssueDate"], ["Matriz_Data_Revisao", "matrixRevisionDate"]];
 function UD(e, t = !1) {
   let a = t ? Bn() : e,
     o = XLSX.utils.book_new(),
     r = {
-      Departamentos: a.departments.map(s => [s.id, s.name, s.description, (s.prerequisiteTrainingIds || []).join(";"), (s.versatilityCards || []).join(";")]),
+      Departamentos: a.departments.map(s => [s.id, s.name, s.description, (s.prerequisiteTrainingIds || []).join(";"), (s.versatilityCards || []).join(";"), ...SESE_POLY_COLUMNS.map(([, key]) => s[key] || "")]),
+      Matriz_Departamentos: a.departments.flatMap(s => (s.matrixCourses || []).map(link => [s.id, link.trainingId, link.demand || 0])),
+      Niveis_Cursos: (a.courseLevels || []).map(s => [s.employeeId, s.trainingId, s.level]),
       Atividades: a.tasks.map(s => [s.id, s.departmentId, s.name, s.description]),
       Colaboradores: [...a.employees].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"})).map(s => [s.registration, s.vwBadge, s.name, s.admissionDate, s.role, s.shift, s.versatility, s.responsible, s.id, s.departmentId, (s.prerequisiteTrainingIds || []).join(";")]),
       Avaliacoes: a.evaluations.map(s => [s.employeeId, s.taskId, s.level, s.date]),
@@ -855,8 +1201,28 @@ function UD(e, t = !1) {
     })), i["!autofilter"] = {
       ref: i["!ref"]
     }, XLSX.utils.book_append_sheet(o, i, "Matriz_Consulta");
+    let courseRows = [["Departamento", "Colaborador", "Cargo", "Carta de Versatilidade", "Curso", "Pre_Requisito", "Situacao", "Vencimento"]];
+    for (let department of [...a.departments].sort((x, y) => x.name.localeCompare(y.name, "pt-BR"))) {
+      let matrix = seseDepartmentCourseMatrix(a, department.id);
+      for (let person of matrix.employees) for (let column of matrix.columns) {
+        let state = matrix.status(person, column);
+        courseRows.push([department.name, person.name, person.role, person.versatility, column.title, column.required ? "Sim" : "N\xE3o", state.text, state.expiry]);
+      }
+    }
+    let courseSheet = XLSX.utils.aoa_to_sheet(courseRows);
+    courseSheet["!cols"] = [28, 32, 28, 28, 42, 15, 28, 14].map(u => ({ wch: u })), courseSheet["!autofilter"] = { ref: courseSheet["!ref"] }, XLSX.utils.book_append_sheet(o, courseSheet, "Matriz_Cursos");
+    let polyRows = [["Departamento", "Chapa", "Colaborador", "Admissao", "Curso", "Nivel", "Descricao_Nivel", "Origem"]];
+    for (let department of [...a.departments].sort((x, y) => x.name.localeCompare(y.name, "pt-BR"))) {
+      let matrix = sesePolyMatrix(a, department.id);
+      for (let person of matrix.employees) for (let course of matrix.courses) {
+        let state = matrix.level(person, course);
+        polyRows.push([department.name, person.vwBadge || person.registration, person.name, person.admissionDate, course.title, state.level, SESE_LEVELS[state.level], state.manual ? "Manual" : "Autom\xE1tico"]);
+      }
+    }
+    let polySheet = XLSX.utils.aoa_to_sheet(polyRows);
+    polySheet["!cols"] = [28, 14, 34, 14, 42, 8, 32, 14].map(u => ({ wch: u })), polySheet["!autofilter"] = { ref: polySheet["!ref"] }, XLSX.utils.book_append_sheet(o, polySheet, "Matriz_Polivalencia");
   }
-  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por departamento."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das oito colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula ou Chapa Volkswagen (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
+  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por departamento."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das oito colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para departamento; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula ou Chapa Volkswagen (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["Matriz de polival\xEAncia", "Matriz_Departamentos define os cursos (colunas) da matriz de cada departamento, na ordem das linhas, e a Necessidade de operadores. Niveis_Cursos guarda apenas os n\xEDveis 0 a 4 ajustados manualmente; os demais s\xE3o calculados pelos cursos. Matriz_Polivalencia \xE9 apenas para leitura."], ["Matriz_Cursos", "Aba apenas para leitura: a matriz de cada departamento, colaborador por curso. Para alterar, edite Treinamentos e Cursos_Pre_Requisito."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
     l = XLSX.utils.aoa_to_sheet(n);
   return l["!cols"] = [{
     wch: 28
@@ -1033,8 +1399,9 @@ function QD(e) {
       Atividades: "tasks",
       Colaboradores: "employees",
       Avaliacoes: "evaluations",
-      Treinamentos: "trainings", Treinamentos_Gerais:"trainingCatalog", Treinamentos_Departamentos:"departmentTrainings",Afastamentos:"absences"
+      Treinamentos: "trainings", Treinamentos_Gerais:"trainingCatalog", Treinamentos_Departamentos:"departmentTrainings",Afastamentos:"absences",Matriz_Departamentos:"matrixLinks",Niveis_Cursos:"courseLevels"
     };
+  t.matrixLinks = [];
   for (let [n, l] of Object.entries(cM)) {
     let s = e.Sheets[n];
     if (!s) continue;
@@ -1049,7 +1416,7 @@ function QD(e) {
         raw: !0
       }),
       u = (i[0] || []).map(At),
-      d = l.filter(c => !u.includes(c) && !(["Treinamentos", "Treinamentos_Gerais"].includes(n) && c === "Carga_Horaria") && !(n === "Treinamentos" && ["ID_Treinamento_Geral","Tags","Interno","Externo","Homologado"].includes(c)) && !(n === "Departamentos" && (c === "Cursos_Pre_Requisito" || c === "Cartas_Versatilidade")) && !(n === "Colaboradores" && c === "Cursos_Pre_Requisito"));
+      d = l.filter(c => !u.includes(c) && !(["Treinamentos", "Treinamentos_Gerais"].includes(n) && c === "Carga_Horaria") && !(n === "Treinamentos" && ["ID_Treinamento_Geral","Tags","Interno","Externo","Homologado"].includes(c)) && !(n === "Departamentos" && (c === "Cursos_Pre_Requisito" || c === "Cartas_Versatilidade" || c.startsWith("Matriz_"))) && !(n === "Colaboradores" && c === "Cursos_Pre_Requisito"));
     if (d.length) throw Error(`${n}: colunas ausentes: ${d.join(", ")}.`);
     const recognizedColumns = new Set(l);
     for (let rowIndex = 1; rowIndex < i.length; rowIndex++) {
@@ -1070,7 +1437,8 @@ function QD(e) {
           name: At(f.Nome),
           description: At(f.Descricao),
           prerequisiteTrainingIds: u.includes("Cursos_Pre_Requisito") ? seseIdList(f.Cursos_Pre_Requisito) : [],
-          ...(u.includes("Cartas_Versatilidade") ? { versatilityCards: String(f.Cartas_Versatilidade ?? "").split(";").map(card => card.trim()).filter(Boolean) } : {})
+          ...(u.includes("Cartas_Versatilidade") ? { versatilityCards: String(f.Cartas_Versatilidade ?? "").split(";").map(card => card.trim()).filter(Boolean) } : {}),
+          ...Object.fromEntries(SESE_POLY_COLUMNS.filter(([column]) => u.includes(column)).map(([column, key]) => [key, column.includes("Data") ? yh(f[column], true) : At(f[column])]))
         }), n === "Atividades" && (m = {
           id: At(f.ID),
           departmentId: At(f.ID_Departamento),
@@ -1110,6 +1478,8 @@ function QD(e) {
         }
         if(n==="Treinamentos_Gerais") m={id:At(f.ID),title:At(f.Titulo),description:At(f.Descricao),hours:At(f.Carga_Horaria)===""?null:Number(At(f.Carga_Horaria).replace(",",".")),validityMonths:Number(At(f.Validade_Meses).replace(",",".")),tags:seseTags(f.Tags)};
         if(n==="Treinamentos_Departamentos") m={id:At(f.ID),departmentId:At(f.ID_Departamento),trainingId:At(f.ID_Treinamento_Geral)};
+        if(n==="Matriz_Departamentos") { const demand = Number(At(f.Necessidade).replace(",", ".")) || 0; if (!Number.isInteger(demand) || demand < 0) throw Error("Necessidade deve ser um n\xFAmero inteiro"); m={departmentId:At(f.ID_Departamento),trainingId:At(f.ID_Treinamento_Geral),demand}; }
+        if(n==="Niveis_Cursos") { const level = Number(At(f.Nivel)); if (![0,1,2,3,4].includes(level)) throw Error("Nivel deve ser de 0 a 4"); m={employeeId:At(f.ID_Colaborador),trainingId:At(f.ID_Treinamento_Geral),level}; }
         if(n==="Afastamentos") m={id:At(f.ID),employeeId:At(f.ID_Colaborador),startDate:yh(f.Inicio),endDate:yh(f.Fim,true),reason:At(f.Observacao),recycled:seseBool(f.Reciclagem_Realizada),recycledDate:yh(f.Data_Reciclagem,true)};
         t[r[n]].push(m);
       } catch (m) {
@@ -1183,6 +1553,14 @@ function AM(e, t, a) {
     r.add(i), n.set(i, s);
   }
   o.evaluations = [...n.values()];
+  // Níveis ajustados: a dupla colaborador + curso é a chave. Cursos da matriz: a planilha substitui a lista do departamento informado.
+  const levelMap = new Map((o.courseLevels || []).map(s => [s.employeeId + "|" + s.trainingId, s]));
+  for (let s of t.courseLevels || []) levelMap.set(s.employeeId + "|" + s.trainingId, s);
+  o.courseLevels = [...levelMap.values()];
+  const linkGroups = new Map();
+  for (let s of t.matrixLinks || []) linkGroups.set(s.departmentId, [...(linkGroups.get(s.departmentId) || []), { trainingId: s.trainingId, demand: s.demand }]);
+  for (let [departmentId] of linkGroups) if (!o.departments.some(s => s.id === departmentId)) throw Error("Matriz_Departamentos: departamento n\xE3o encontrado: " + departmentId + ".");
+  o.departments = o.departments.map(s => linkGroups.has(s.id) ? { ...s, matrixCourses: linkGroups.get(s.id) } : s);
   let l = lc.safeParse(o);
   if (!l.success) throw Error(l.error.issues.slice(0, 8).map(s => `${s.path.join(" / ")}: ${s.message}`).join(`
 `));
@@ -2063,7 +2441,7 @@ function SeseEditableCell({ value = "", type = "text", options = [], label = "",
   return (0, A.jsxs)(A.Fragment, { children: [(0, A.jsx)("input", { className: "sese-inline-input", type, autoFocus: true, value: draft, maxLength: type === "date" ? void 0 : maxLength, max: type === "date" ? Xo() : void 0, list: options.length ? listId : void 0, "aria-label": label, onChange: event => setDraft(event.target.value), onBlur: () => finish(true), onKeyDown: event => { if (event.key === "Enter") { event.preventDefault(); finish(true); } else if (event.key === "Escape") { event.preventDefault(); finish(false); } } }), options.length > 0 && (0, A.jsx)("datalist", { id: listId, children: options.map(option => (0, A.jsx)("option", { value: option }, option)) })] });
 }
 function Rh() {
-  const [seseCard,setSeseCard]=Be.useState("all");
+  const [seseCard,setSeseCard]=Be.useState("all"), [sesePolyDept,setSesePolyDept]=Be.useState("");
   const [seseEdit,setSeseEdit]=Be.useState(null), [sesePicker,setSesePicker]=Be.useState(null), [seseAbsenceId,setSeseAbsenceId]=Be.useState(null);
   let [e, t] = (0, Be.useState)(Bn),
     [a, o] = (0, Be.useState)(Bn),
@@ -2253,6 +2631,16 @@ function Rh() {
       await Ct(next);
     } catch (err) { El.error(err instanceof Error ? err.message : "N\xE3o foi poss\xEDvel salvar."); }
   }
+  async function sesePolySave(change) {
+    if (!l && (d || f)) { El.error("Carregue seus dados antes de fazer altera\xE7\xF5es."); return false; }
+    try { const next = structuredClone(e); change(next); await Ct(next); return true; }
+    catch (err) { El.error(err instanceof Error ? err.message : "N\xE3o foi poss\xEDvel salvar."); return false; }
+  }
+  const sesePolySaveDepartment = (id, patch) => sesePolySave(next => { next.departments = next.departments.map(item => item.id === id ? { ...item, ...patch } : item); });
+  const sesePolySaveLevel = (employeeId, trainingId, level) => sesePolySave(next => {
+    next.courseLevels = (next.courseLevels || []).filter(item => !(item.employeeId === employeeId && item.trainingId === trainingId));
+    if (level !== null) next.courseLevels.push({ employeeId, trainingId, level });
+  });
   const SESE_FIELD_LABELS = { name: "nome", registration: "matr\xEDcula", vwBadge: "chapa VW", admissionDate: "admiss\xE3o", role: "cargo atual", shift: "turno", versatility: "carta de versatilidade", responsible: "respons\xE1vel" };
   const seseCell = (person, field, children) => (0, A.jsx)(SeseEditableCell, { value: person[field] || "", type: field === "admissionDate" ? "date" : "text", maxLength: field === "registration" || field === "vwBadge" ? 100 : 140, label: SESE_FIELD_LABELS[field] + " de " + person.name, options: seseFieldOptions(field), onSave: value => seseSaveField(person.id, field, value), children }, person.id + "|" + field);
   function ot(S, M, T = {}) {
@@ -2353,7 +2741,7 @@ function Rh() {
           }
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&((Me.registration&&(item.registration===Me.registration||item.id==="MAT_"+Me.registration))||(Me.vwBadge&&(item.vwBadge===Me.vwBadge||item.id==="CHAPA_"+Me.vwBadge))))) throw Error("Já existe um colaborador com essa matrícula ou chapa Volkswagen.");
           let st = Mh[ne];
-          M[st] = [...M[st].filter(It => It.id !== T), Me];
+          M[st] = [...M[st].filter(It => It.id !== T), ne === "department" ? { ...(M[st].find(It => It.id === T) || {}), ...Me } : Me];
           if (ne === "department") {
             M.departmentTrainings = M.departmentTrainings.filter(link => link.departmentId !== T);
             for (const trainingId of Me.prerequisiteTrainingIds || []) M.departmentTrainings.push({ id: seseId(), departmentId: T, trainingId });
@@ -3052,7 +3440,7 @@ function Rh() {
                 })]
               }), wa(Na.filter(S => ["expired", "week", "month"].includes(Vr(S.expiry).key)).sort((S, M) => S.expiry.localeCompare(M.expiry)).slice(0, 5), !0)]
             })]
-          }), i === "matrix" && (0,A.jsx)("p",{className:"sese-matrix-note",children:e.employees.filter(person=>(C==='all'||person.departmentId===C)&&seseAbsence(e,person.id).active).length+" colaborador(es) afastado(s), oculto(s) nesta matriz. Gerencie início, fim e reciclagem em Colaboradores."}), i === "matrix" && (0,A.jsx)(SeseAptitudeMatrix, { data: e, departmentId: C, cell: seseCell }), i === "matrix" && ce === "all" && (0, A.jsxs)(A.Fragment, {
+          }), i === "matrix" && (0,A.jsx)("p",{className:"sese-matrix-note",children:e.employees.filter(person=>(C==='all'||person.departmentId===C)&&seseAbsence(e,person.id).active).length+" colaborador(es) afastado(s), oculto(s) nesta matriz. Gerencie início, fim e reciclagem em Colaboradores."}), i === "matrix" && (0,A.jsx)(SeseAptitudeMatrix, { data: e, departmentId: C, cell: seseCell }), i === "matrix" && (0,A.jsx)(SeseCourseMatrix, { data: e, departmentId: C, cell: seseCell, onOpen: Te }), i === "matrix" && ce === "all" && (0, A.jsxs)(A.Fragment, {
             children: [(0, A.jsxs)("div", {
               className: "matrix-legend",
               children: [(0,A.jsx)("span",{className:"sese-refresh-badge",children:"Vermelho · reciclagem pendente após afastamento > 45 dias"}),(0, A.jsx)(vi, {
@@ -3306,7 +3694,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsxs)("section",{className:"sese-department-trainings sese-department-cards",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CARTAS DE VERSATILIDADE"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar carta de versatilidade ao departamento "+S.name,title:"Adicionar carta de versatilidade",onClick:()=>ot("department",S.id,{versatilityCards:[...(S.versatilityCards||[]).map(card=>({o:card,v:card})),{o:"",v:""}]}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),(S.versatilityCards||[]).length?(0,A.jsx)("ul",{className:"sese-card-list",children:S.versatilityCards.map(card=>(0,A.jsxs)("li",{children:[(0,A.jsx)("span",{children:card}),(0,A.jsxs)("button",{type:"button",className:"text-link",title:"Ver os colaboradores desta carta",onClick:()=>{Ht("employees");p(S.id);setSeseCard(card);},children:[e.employees.filter(M=>seseSameName(M.versatility,card)).length," colab."]})]},card))}):(0,A.jsx)("p",{className:"muted",children:"Nenhuma carta cadastrada."})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do departamento "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsx)("button",{type:"button",className:"add-task sese-poly-open",onClick:()=>{setSesePolyDept(S.id);setTimeout(()=>document.getElementById("sese-poly-anchor")?.scrollIntoView({behavior:"smooth",block:"start"}),60);},children:"\u25D5 Ver matriz de polival\xEAncia"}), (0,A.jsxs)("section",{className:"sese-department-trainings sese-department-cards",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CARTAS DE VERSATILIDADE"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar carta de versatilidade ao departamento "+S.name,title:"Adicionar carta de versatilidade",onClick:()=>ot("department",S.id,{versatilityCards:[...(S.versatilityCards||[]).map(card=>({o:card,v:card})),{o:"",v:""}]}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),(S.versatilityCards||[]).length?(0,A.jsx)("ul",{className:"sese-card-list",children:S.versatilityCards.map(card=>(0,A.jsxs)("li",{children:[(0,A.jsx)("span",{children:card}),(0,A.jsxs)("button",{type:"button",className:"text-link",title:"Ver os colaboradores desta carta",onClick:()=>{Ht("employees");p(S.id);setSeseCard(card);},children:[e.employees.filter(M=>seseSameName(M.versatility,card)).length," colab."]})]},card))}):(0,A.jsx)("p",{className:"muted",children:"Nenhuma carta cadastrada."})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do departamento "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO DEPARTAMENTO"
               }), (0, A.jsxs)("div", {
@@ -3332,7 +3720,7 @@ function Rh() {
                   size: 17
                 }), " Adicionar atividade"]
               })]
-            }, S.id)), !e.departments.length && (0, A.jsx)("section", {
+            }, S.id)), e.departments.length > 0 && (0, A.jsx)("section", { className: "panel full sese-poly-panel", id: "sese-poly-anchor", children: (0, A.jsx)(SesePolyBoard, { data: e, departmentId: sesePolyDept, onDepartment: setSesePolyDept, onSaveDepartment: sesePolySaveDepartment, onSaveLevel: sesePolySaveLevel, onOpen: Te, disabled: v || (!l && (d || !!f)) }) }), !e.departments.length && (0, A.jsx)("section", {
               className: "panel full",
               children: (0, A.jsx)(Vn, {
                 title: "Organize seus departamentos",
@@ -3746,7 +4134,161 @@ var Lh = class extends pM.default.Component {
 }));
 
 })();
-</script><script id="sese-horizontal-controls-script">
+</script><style id="sese-course-matrix-style">
+.sese-course-matrix{margin-bottom:1rem}
+.sese-course-intro{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:.75rem 1rem;margin:1.25rem 0 .75rem}
+.sese-course-intro h2{font-size:1rem;font-weight:600;margin:0}
+.sese-course-intro p{font-size:.8125rem;color:var(--muted-foreground,#64748b);margin:.2rem 0 0;max-width:62ch}
+.sese-course-key,.sese-course-cell{border:1px solid #0000;border-radius:6px;font-weight:600}
+.sese-course-key{display:inline-flex;align-items:center;padding:4px 9px;font-size:.6875rem;white-space:nowrap}
+.sese-course-empty{padding:1rem 1.25rem 1.25rem;font-size:.8125rem;color:var(--muted-foreground,#64748b);margin:0}
+.sese-course-table th.sese-course-head{min-width:6.5rem;max-width:11rem;white-space:normal;text-transform:none;letter-spacing:0;font-size:.75rem;line-height:1.25;vertical-align:bottom;color:inherit}
+.sese-course-table th.sese-course-head span{display:block;font-weight:600}
+.sese-course-table th.sese-course-head::after{content:attr(data-note);display:block;margin-top:.2rem;font-size:.6875rem;font-weight:500;color:var(--muted-foreground,#64748b);white-space:nowrap}
+.sese-aptitude-cell{background:transparent!important}
+.sese-aptitude-table td:first-child,.sese-aptitude-table th:first-child{background:var(--card,#fff)}
+.sese-aptitude-table th,.sese-aptitude-table th:first-child{background:var(--ui-soft,#f1f5f9)}
+html[data-theme=dark] .sese-aptitude-table th,html[data-theme=dark] .sese-aptitude-table th:first-child{background:#1f2d44;color:#a9b8cf}
+html[data-theme=dark] .sese-aptitude-bar{background:#33435c}
+.sese-course-table th.sese-course-head.required{box-shadow:inset 0 3px 0 var(--ui-gold-ink,#b45309)}
+.sese-course-table td:first-child{min-width:13rem}
+.sese-course-cell{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:5.5rem;min-height:38px;padding:3px 8px;cursor:pointer;line-height:1.15}
+.sese-course-cell strong{font-size:.875rem}
+.sese-course-cell small{font-size:.6875rem;font-weight:500;white-space:nowrap}
+.sese-course-cell:hover{filter:brightness(.97)}
+.sese-course-cell:focus-visible{outline:2px solid var(--ring,#0066ff);outline-offset:2px}
+.sese-course-key.ok,.sese-course-cell.ok{background:var(--ui-plum-soft,#dcfce7);color:var(--ui-ink,#14532d)}
+.sese-course-key.soon,.sese-course-cell.soon{background:var(--ui-gold-soft,#fef3c7);color:var(--ui-gold-ink,#92400e)}
+.sese-course-key.expired,.sese-course-cell.expired{background:#ffdade;color:#a41724;border-color:#e5979d}
+.sese-course-key.pending,.sese-course-cell.pending{background:#fff0f0;color:#a41724;border-color:#ffc8cc;border-style:dashed}
+.sese-course-key.none,.sese-course-cell.none{background:var(--ui-soft,#f1f5f9);color:var(--muted-foreground,#64748b)}
+html[data-theme=dark] .sese-course-key.expired,html[data-theme=dark] .sese-course-cell.expired{background:#5b2533;color:#ffdce0;border-color:#8a3a4a}
+html[data-theme=dark] .sese-course-key.pending,html[data-theme=dark] .sese-course-cell.pending{background:#3e202c;color:#ffc1c7;border-color:#8a3a4a}
+.sese-fit-host.sese-compact .sese-course-cell{min-width:3.4rem;min-height:32px;padding:2px 4px}
+.sese-fit-host.sese-compact .sese-course-cell small{white-space:normal;font-size:.625rem}
+.sese-fit-host.sese-compact .sese-course-table th.sese-course-head::after{white-space:normal}
+.sese-fit-host.sese-cards .sese-course-cell{flex-direction:row;gap:6px;min-width:0}
+html[data-theme=dark] [data-slot="table-container"] .sese-sticky-cell{background-color:var(--card,#18253a)}
+html[data-theme=dark] [data-slot="table-container"] thead .sese-sticky-cell{background-color:var(--ui-soft2,#1b2940)}
+html[data-theme=dark] [data-slot="table-container"] tbody tr:hover .sese-sticky-cell{background-color:var(--ui-soft,#20314b)}
+html[data-theme=dark] [data-slot="table-container"] .sese-refresh-row .sese-sticky-cell{background-color:#3e202c}
+html[data-theme=dark] [data-slot="table-container"] .sese-name-cell{box-shadow:5px 0 8px -7px rgba(0,0,0,.8)}
+html[data-theme=dark] .sese-scroll-toolbar{background:rgba(27,41,64,.97);border-bottom-color:var(--ui-border,#354a68)}
+html[data-theme=dark] .sese-scroll-hint{color:var(--muted-foreground,#b0c5df)}
+html[data-theme=dark] .sese-scroll-toolbar button{background:var(--ui-soft,#20314b);color:var(--foreground,#e7f0ff);border-color:var(--ui-border,#354a68)}
+html[data-theme=dark] .sese-scroll-toolbar button:hover:not(:disabled){background:var(--accent,#203f68);border-color:#5b7fb3}
+html[data-theme=dark] [data-slot="table-container"]::-webkit-scrollbar-track{background:#1b2940}
+html[data-theme=dark] [data-slot="table-container"]::-webkit-scrollbar-thumb{background:#4a6288;border-color:#1b2940}
+html[data-theme=dark] [data-slot="table-container"]:fullscreen,html[data-theme=dark] [data-slot="table-container"].sese-fullscreen-fallback{background:var(--card,#18253a)!important}
+@media print{.sese-course-panel{break-inside:avoid}}
+</style><style id="sese-poly-style">
+.sese-poly-panel{padding:1.25rem;min-width:0;scroll-margin-top:5rem}
+.sese-poly-open{margin-top:12px}
+.sese-poly-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:.75rem 1rem;margin-bottom:1rem}
+.sese-poly-toolbar h2{font-size:1.05rem;font-weight:600;margin:0}
+.sese-poly-toolbar p{font-size:.8125rem;color:var(--muted-foreground,#64748b);margin:.25rem 0 0;max-width:60ch}
+.sese-poly-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.sese-poly-select,.sese-poly-button,.sese-poly-search{min-height:38px;padding:6px 12px;border:1px solid var(--ui-border,#cbd8e9);border-radius:8px;background:var(--card,#fff);color:inherit;font:inherit;font-size:.8125rem}
+.sese-poly-select{max-width:18rem}
+.sese-poly-button{font-weight:600;cursor:pointer;white-space:nowrap}
+.sese-poly-button.primary{background:#0066ff;border-color:#0066ff;color:#fff}
+.sese-poly-button:disabled{opacity:.5;cursor:not-allowed}
+.sese-poly-empty{margin:0 0 1rem;padding:.75rem 1rem;border:1px dashed var(--ui-border,#cbd8e9);border-radius:8px;font-size:.8125rem;color:var(--muted-foreground,#64748b)}
+.sese-poly-scroll{overflow-x:auto;max-width:100%}
+.sese-poly-sheet{--poly-line:#1f2937;--poly-head:#d9d9d9;--poly-ink:#111827;--poly-paper:#fff;display:inline-block;min-width:100%;color:var(--poly-ink);background:var(--poly-paper);border:2px solid var(--poly-line)}
+html[data-theme=dark] .sese-poly-sheet{--poly-line:#5b7092;--poly-head:#2a3b57;--poly-ink:#e7f0ff;--poly-paper:#18253a}
+.sese-poly-table{border-collapse:collapse;width:100%;font-size:.75rem}
+.sese-poly-table th,.sese-poly-table td{border:1px solid var(--poly-line);padding:3px 6px;text-align:center;vertical-align:middle;height:28px}
+.sese-poly-sector{font-size:1rem;font-weight:700;min-width:15rem}
+.sese-poly-title{font-size:1.35rem;font-weight:700;padding:14px 6px!important}
+.sese-poly-subtitle{font-size:.8125rem;font-weight:700}
+.sese-poly-v{height:11.5rem!important;width:2.4rem;min-width:2.4rem;padding:6px 2px!important;vertical-align:bottom!important;background:var(--poly-head);font-size:.6875rem;font-weight:700}
+.sese-poly-v.plain{background:transparent}
+.sese-poly-v.wide{min-width:6.5rem}
+.sese-poly-v span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);max-height:10.5rem;line-height:1.15;text-align:left;white-space:normal}
+.sese-poly-badge{width:5.5rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sese-poly-badge.away{background:#e53935;color:#fff;font-weight:700}
+.sese-poly-name{text-align:left!important;min-width:13rem;white-space:nowrap}
+.sese-poly-name button{color:inherit;font:inherit;text-align:left;cursor:pointer}
+.sese-poly-name button:hover{text-decoration:underline}
+.sese-poly-date{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:.6875rem}
+.sese-poly-cell{position:relative;padding:2px!important}
+.sese-poly-cell select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.sese-poly-cell:hover,.sese-poly-cell:focus-within{background:rgba(0,102,255,.14)}
+.sese-poly-cell:focus-within{outline:2px solid #0066ff;outline-offset:-2px}
+.sese-poly-cell.manual::after{content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#0066ff}
+.sese-poly-cell.expired .sese-ball-ring{stroke:#e53935;stroke-dasharray:3 2}
+.sese-ball{display:block;margin:auto}
+.sese-ball-ring{fill:var(--poly-paper,#fff);stroke:currentColor;stroke-width:1.4}
+.sese-ball-full,.sese-ball-fill{fill:currentColor;opacity:.72}
+.sese-ball-full{stroke:currentColor;stroke-width:1.4}
+.sese-poly-band{background:#ffc000;color:#111827;font-weight:700;letter-spacing:.02em}
+.sese-poly-rowhead{font-size:.6875rem;font-weight:700}
+.sese-poly-number{font-weight:600;font-variant-numeric:tabular-nums;padding:0!important}
+.sese-poly-number.short{background:#ffdade;color:#a41724}
+.sese-poly-none{padding:1rem!important;color:var(--muted-foreground,#64748b)}
+.sese-poly-input{width:100%;min-width:0;border:0;background:transparent;color:inherit;font:inherit;text-align:center;padding:4px 2px;border-radius:4px}
+.sese-poly-input:hover:not(:disabled){background:rgba(0,102,255,.1)}
+.sese-poly-input:focus{outline:2px solid #0066ff}
+.sese-poly-number .sese-poly-input{-moz-appearance:textfield;appearance:textfield;font-weight:600}
+.sese-poly-number .sese-poly-input::-webkit-outer-spin-button,.sese-poly-number .sese-poly-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.sese-poly-foot{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:stretch;padding:.75rem;border-top:1px solid var(--poly-line)}
+.sese-poly-notes{flex:1 1 26rem;min-width:0}
+.sese-poly-notes p{margin:0 0 .75rem;font-size:.6875rem;font-weight:700;line-height:1.45;text-transform:uppercase}
+.sese-poly-sign{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}
+.sese-poly-sign label{display:grid;gap:2px;border:1px solid var(--poly-line);padding:4px 6px}
+.sese-poly-sign label span{font-size:.625rem;font-weight:700;text-transform:uppercase}
+.sese-poly-sign .sese-poly-input{text-align:left;font-size:.75rem}
+html[data-theme=dark] .sese-poly-sign input[type=date]{color-scheme:dark}
+.sese-poly-legend{display:grid;grid-template-columns:repeat(5,5.6rem);border:1px solid var(--poly-line);align-self:flex-start}
+.sese-poly-legend div{display:block;padding:6px 4px;text-align:center;border-left:1px solid var(--poly-line)}
+.sese-poly-legend .sese-ball{display:inline-block;margin:0 0 2px}
+.sese-poly-legend strong,.sese-poly-legend span{display:block}
+.sese-poly-print-value{display:block;min-height:1.2em;font-size:.75rem;text-align:inherit}
+.sese-poly-legend div:first-child{border-left:0}
+.sese-poly-legend strong{font-size:.6875rem}
+.sese-poly-legend span{font-size:.625rem;line-height:1.2;text-transform:uppercase}
+.sese-poly-overlay{position:fixed;inset:0;z-index:1000;background:rgba(8,15,28,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.sese-poly-dialog{width:min(100%,56rem);max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:var(--card,#fff);color:var(--foreground,#0f172a);border:1px solid var(--ui-border,#cbd8e9);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.sese-poly-dialog header,.sese-poly-dialog footer{display:flex;justify-content:space-between;gap:1rem;padding:1rem 1.25rem}
+.sese-poly-dialog header h2{margin:0;font-size:1.05rem;font-weight:600}
+.sese-poly-dialog header p{margin:.25rem 0 0;font-size:.8125rem;color:var(--muted-foreground,#64748b)}
+.sese-poly-dialog footer{justify-content:flex-end;border-top:1px solid var(--ui-border,#e2e8f0)}
+.sese-poly-dialog .sese-poly-empty{margin:0 1.25rem 1rem}
+.sese-poly-pick{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:0 1.25rem 1rem;min-height:0;overflow:auto}
+.sese-poly-pick>div{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.sese-poly-pick strong{font-size:.8125rem}
+.sese-poly-list{border:1px solid var(--ui-border,#e2e8f0);border-radius:8px;height:19rem;overflow:auto;padding:4px}
+.sese-poly-list label,.sese-poly-order>div{display:flex;align-items:center;gap:.5rem;padding:6px 8px;border-radius:6px;font-size:.8125rem}
+.sese-poly-list label{cursor:pointer}
+.sese-poly-list label:hover{background:var(--ui-soft,#f1f5f9)}
+.sese-poly-list label input{flex:none;width:16px;height:16px}
+.sese-poly-order>div span{flex:1;min-width:0;overflow-wrap:anywhere}
+.sese-poly-order .icon-button{flex:none;min-width:28px;min-height:28px}
+.sese-poly-order .icon-button:disabled{opacity:.3}
+.sese-poly-list .muted{padding:8px;font-size:.8125rem}
+.sese-poly-quick{display:flex;gap:1rem}
+@media(max-width:640px){.sese-poly-pick{grid-template-columns:1fr}.sese-poly-list{height:12rem}.sese-poly-panel{padding:.9rem}.sese-poly-actions,.sese-poly-select{width:100%;max-width:none}.sese-poly-button{flex:1}.sese-poly-name{min-width:9.5rem;white-space:normal}.sese-poly-sector{min-width:0}}
+#sese-poly-print{display:none}
+@page sesePoly{size:A4 landscape;margin:8mm}
+@media print{
+html.sese-poly-printing,html.sese-poly-printing body{background:#fff!important;height:auto!important;overflow:visible!important}
+html.sese-poly-printing body>:not(#sese-poly-print){display:none!important}
+html.sese-poly-printing #sese-poly-print{display:block;page:sesePoly}
+#sese-poly-print .sese-poly-sheet{--poly-line:#000;--poly-head:#d9d9d9;--poly-ink:#000;--poly-paper:#fff;display:block;width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#sese-poly-print .sese-poly-table{font-size:7.5pt}
+#sese-poly-print .sese-poly-name{white-space:normal;min-width:0}
+#sese-poly-print .sese-poly-sector{min-width:0}
+#sese-poly-print .sese-poly-cell select{display:none}
+#sese-poly-print .sese-poly-cell.manual::after{display:none}
+#sese-poly-print tr,#sese-poly-print .sese-poly-notes,#sese-poly-print .sese-poly-legend{break-inside:avoid}
+#sese-poly-print .sese-poly-foot{display:block}
+#sese-poly-print .sese-poly-legend{margin-top:8px;width:max-content}
+#sese-poly-print .sese-poly-sign{grid-template-columns:repeat(5,1fr)}
+#sese-poly-print thead{display:table-header-group}
+#sese-poly-print tfoot{display:table-row-group}
+}
+</style><script id="sese-horizontal-controls-script">
 (() => {
   const containerSelector = '[data-slot="table-container"]';
   const toolbarSelector = ':scope > .sese-scroll-toolbar';
