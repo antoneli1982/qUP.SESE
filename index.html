@@ -830,7 +830,7 @@ function SeseAptitudeMatrix({ data, departmentId = "all", cell }) {
   ] });
 }
 // ===== Matriz de polivalência por departamento (formato "Matriz Operacional") =====
-const SESE_LEVELS = ["N\xE3o executa atividade", "De 1 a 45 dias", "De 46 a 90 dias", "A partir de 91 dias", "Treinador / multiplicador"];
+const SESE_LEVELS = ["N\xE3o executa atividade", "Em treinamento", "Treinado, por\xE9m ainda necessita de suporte", "Treinado", "Treinado / multiplicado"];
 // Remove vínculos da matriz que apontam para cursos ou colaboradores que não existem mais.
 function sesePrunePoly(data) {
   if (!data || !Array.isArray(data.departments)) return data;
