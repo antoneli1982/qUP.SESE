@@ -2484,6 +2484,8 @@ function Rh() {
     [x, E] = (0, Be.useState)("all"),
     [tsort, setTsort] = (0, Be.useState)("expiry"),
     [tsize, setTsize] = (0, Be.useState)("10"),
+    [esize, setEsize] = (0, Be.useState)("10"),
+    [epg, setEpg] = (0, Be.useState)({ sig: "", n: 1 }),
     [tpg, setTpg] = (0, Be.useState)({ sig: "", n: 1 }),
     [w, y] = (0, Be.useState)("all"),
     [b, z] = (0, Be.useState)(null),
@@ -2831,6 +2833,12 @@ function Rh() {
     qn = S => e.departments.find(M => M.id === S)?.name || "\u2014",
     Ta = S => e.employees.find(M => M.id === S)?.name || "\u2014",
     xi = e.trainings.filter(S => (C === "all" || e.employees.find(M => M.id === S.employeeId)?.departmentId === C) && (w === "all" || S.employeeId === w) && (x === "all" || (x === "attention" ? ["expired", "week", "month"].includes(Vr(S.expiry).key) : Vr(S.expiry).key === x)) && seseMatches(S,g,[Ta(S.employeeId),...(e.trainingCatalog.find(item=>item.id===S.templateId)?.tags||[])].join(" "))).sort((S, M) => tsort === "dateDesc" ? (M.date || "").localeCompare(S.date || "") : tsort === "dateAsc" ? (S.date || "9999").localeCompare(M.date || "9999") : (S.expiry || "9999").localeCompare(M.expiry || "9999")),
+    esig = [C, g, seseCard, esize].join("|"),
+    eper = parseInt(esize, 10) || 10,
+    epages = Math.max(1, Math.ceil(Fl.length / eper)),
+    ecur = Math.min(epg.sig === esig ? epg.n : 1, epages),
+    ego = n => setEpg({ sig: esig, n: Math.min(Math.max(1, n), epages) }),
+    eslice = Fl.slice((ecur - 1) * eper, ecur * eper),
     tsig = [C, g, x, w, tsort, tsize].join("|"),
     tper = parseInt(tsize, 10) || 10,
     tpages = Math.max(1, Math.ceil(xi.length / tper)),
@@ -3689,6 +3697,14 @@ function Rh() {
                   children: Fl.length
                 })]
               })
+            }), (0, A.jsx)("div", {
+              className: "sese-pager",
+              children: (0, A.jsx)(Kl, {
+                value: esize,
+                onChange: setEsize,
+                label: "Itens por p\xE1gina",
+                options: [{ id: "10", name: "10 por p\xE1gina" }, { id: "50", name: "50 por p\xE1gina" }, { id: "100", name: "100 por p\xE1gina" }]
+              })
             }), Fl.length ? (0, A.jsxs)($u, {
               children: [(0, A.jsx)(ec, {
                 children: (0, A.jsxs)(wr, {
@@ -3700,7 +3716,7 @@ function Rh() {
                   })]
                 })
               }), (0, A.jsx)(tc, {
-                children: Fl.map(S => {
+                children: eslice.map(S => {
                   return (0, A.jsxs)(wr, {
                     children: [(0,A.jsx)(Lt,{children:seseCell(S,"registration")}),(0,A.jsx)(Lt,{children:seseCell(S,"vwBadge")}),(0, A.jsx)(Lt, {
                       children: seseCell(S, "name", (0, A.jsxs)("button", {
@@ -3723,6 +3739,13 @@ function Rh() {
             }) : (0, A.jsx)(Vn, {
               title: "Nenhum colaborador encontrado",
               text: "Cadastre as pessoas da equipe ou ajuste o filtro de busca."
+            }), Fl.length > 0 && (0, A.jsxs)("div", {
+              className: "sese-pager",
+              children: [(0, A.jsx)("button", { type: "button", className: "btn", disabled: ecur <= 1, onClick: () => ego(1), children: "\xAB" }),
+                (0, A.jsx)("button", { type: "button", className: "btn", disabled: ecur <= 1, onClick: () => ego(ecur - 1), children: "Anterior" }),
+                (0, A.jsxs)("span", { className: "muted", children: ["P\xE1gina ", ecur, " de ", epages, " \xB7 ", (ecur - 1) * eper + 1, "\u2013", Math.min(ecur * eper, Fl.length), " de ", Fl.length] }),
+                (0, A.jsx)("button", { type: "button", className: "btn", disabled: ecur >= epages, onClick: () => ego(ecur + 1), children: "Pr\xF3xima" }),
+                (0, A.jsx)("button", { type: "button", className: "btn", disabled: ecur >= epages, onClick: () => ego(epages), children: "\xBB" })]
             })]
           }), i === "departments" && (0, A.jsxs)("div", {
             className: "department-grid",
