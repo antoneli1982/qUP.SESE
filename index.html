@@ -1262,7 +1262,9 @@ function seseCardDepartment(departments, name) {
 }
 // Cada departamento guarda suas Cartas de Versatilidade; o colaborador fica no departamento da carta dele.
 function seseApplyVersatility(data) {
-  return data; // Carta de Versatilidade eliminada da ferramenta: nada mais \xE9 reorganizado por carta.
+  // Cartas de Versatilidade retiradas da ferramenta: os dados antigos s\xE3o limpos a cada carga/grava\xE7\xE3o.
+  if (!data || !Array.isArray(data.employees) || !Array.isArray(data.departments)) return data;
+  return { ...data, departments: data.departments.map(item => item && (item.versatilityCards || []).length ? { ...item, versatilityCards: [] } : item), employees: data.employees.map(item => item && item.versatility ? { ...item, versatility: "" } : item) };
   if (!data || !Array.isArray(data.employees) || !Array.isArray(data.departments)) return data;
   let changed = false;
   const departments = data.departments.map(item => {
@@ -2730,19 +2732,6 @@ function SesePrerequisiteEditor({ data, value = [], onChange, label, hint }) {
   ] });
 }
 
-function SeseCardsEditor({ value = [], onChange, count }) {
-  const rows = value.length ? value : [{ o: "", v: "" }];
-  const update = (index, text) => onChange(rows.map((row, current) => current === index ? { ...row, v: text } : row));
-  return (0, A.jsxs)("div", { className: "sese-prerequisite-editor sese-cards-editor", children: [
-    (0, A.jsxs)("div", { className: "sese-section-heading", children: [(0, A.jsx)("strong", { children: "Cartas de Versatilidade" }), (0, A.jsx)("button", { type: "button", className: "icon-button sese-plus", onClick: () => onChange([...rows, { o: "", v: "" }]), "aria-label": "Adicionar carta de versatilidade", title: "Adicionar carta de versatilidade", children: (0, A.jsx)(gn, { size: 18 }) })] }),
-    (0, A.jsx)("p", { className: "form-hint", children: "Cartas que pertencem a este departamento. Use o + para incluir outra." }),
-    (0, A.jsx)("div", { className: "sese-prerequisite-list", children: rows.map((row, index) => (0, A.jsxs)("div", { className: "sese-prerequisite-row", children: [
-      (0, A.jsx)("input", { type: "text", maxLength: 140, value: row.v, placeholder: "Nome da carta de versatilidade", "aria-label": "Carta de versatilidade " + (index + 1), onChange: event => update(index, event.target.value) }),
-      row.o && count ? (0, A.jsx)("small", { className: "sese-card-count", children: count(row.o) + " colab." }) : null,
-      (0, A.jsx)("button", { type: "button", className: "icon-button danger", onClick: () => onChange(rows.filter((_, current) => current !== index)), "aria-label": "Remover carta de versatilidade", children: (0, A.jsx)(Bu, { size: 16 }) })
-    ] }, index)) })
-  ] });
-}
 function SeseEditableCell({ value = "", type = "text", options = [], label = "", maxLength = 140, onSave, children }) {
   const [editing, setEditing] = Be.useState(false), [draft, setDraft] = Be.useState(value), busy = Be.useRef(false), listId = Be.useId();
   const start = () => { busy.current = false; setDraft(value || ""); setEditing(true); };
@@ -2778,7 +2767,7 @@ function Rh() {
     [b, z] = (0, Be.useState)(null),
     [L, H] = (0, Be.useState)({}),
     [K, ee] = (0, Be.useState)(""),
-    [J, de] = (0, Be.useState)(null),
+    [J, de] = (0, Be.useState)(null), [seseMoveTo, setSeseMoveTo] = (0, Be.useState)("__loose__"),
     [D, G] = (0, Be.useState)(null),
     [W, re] = (0, Be.useState)("light");
   (0, Be.useEffect)(() => {
@@ -2933,7 +2922,6 @@ function Rh() {
     } else next.absences=next.absences.map(record=>record.id===item.id ? {...record,...(action==='end'?{endDate:item.endDate}:{recycled:item.recycled,recycledDate:item.recycled?Xo():""})}:record);
     await Ct(next);
   }
-  const seseCardChoices = [{ id: "all", name: "Todas as cartas de versatilidade" }, ...e.departments.filter(S => C === "all" || S.id === C).flatMap(S => (S.versatilityCards || []).map(card => ({ id: card, name: card + " (" + e.employees.filter(M => seseSameName(M.versatility, card)).length + ")" }))).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }))];
   const seseFieldOptions = field => {
     if (!["role", "shift", "versatility", "responsible"].includes(field)) return [];
     const values = e.employees.map(item => String(item[field] || "").trim());
@@ -3007,7 +2995,10 @@ function Rh() {
   Be.useEffect(() => { if (l || d || f || v || seseMoAuto.current || !seseMoPlan?.pending) return; seseMoAuto.current = true; seseMoApply(); }, [seseMoPlan, l, d, f, v]);
   const seseSyncPreview = Be.useMemo(() => { if (!Z || De !== "sync") return null; try { return seseSyncPlan(e, Z.data); } catch (err) { return { error: err instanceof Error ? err.message : "N\xE3o foi poss\xEDvel comparar a planilha." }; } }, [e, Z, De]);
   const sesePolyGo = id => { setSesePolyDept(id); setTimeout(() => { const panel = document.getElementById("sese-poly-anchor"); if (!panel) return; panel.scrollIntoView({ behavior: "smooth", block: "start" }); panel.classList.remove("sese-poly-flash"); void panel.offsetWidth; panel.classList.add("sese-poly-flash"); }, 60); };
-  const SESE_FIELD_LABELS = { name: "nome", registration: "matr\xEDcula", vwBadge: "chapa VW", admissionDate: "admiss\xE3o", role: "cargo atual", shift: "turno", versatility: "carta de versatilidade", responsible: "respons\xE1vel" };
+  const seseIsLoose = item => seseSameName(item?.name, "SEM DEPARTAMENTO");
+  const seseMoveOptions = id => [...(seseIsLoose(e.departments.find(S => S.id === id)) ? [] : [{ id: "__loose__", name: "Mover para “SEM DEPARTAMENTO”" }]), ...e.departments.filter(S => S.id !== id && !seseIsLoose(S)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map(S => ({ id: S.id, name: "Mover para " + S.name })), { id: "__delete__", name: "Excluir os colaboradores junto" }];
+  const seseMoveChoice = id => { const options = seseMoveOptions(id); return options.some(S => S.id === seseMoveTo) ? seseMoveTo : options[0].id; };
+  const SESE_FIELD_LABELS = { name: "nome", registration: "matr\xEDcula", vwBadge: "chapa VW", admissionDate: "admiss\xE3o", role: "cargo atual", shift: "turno", responsible: "respons\xE1vel" };
   const seseCell = (person, field, children) => (0, A.jsx)(SeseEditableCell, { value: person[field] || "", type: field === "admissionDate" ? "date" : "text", maxLength: field === "registration" || field === "vwBadge" ? 100 : 140, label: SESE_FIELD_LABELS[field] + " de " + person.name, options: seseFieldOptions(field), onSave: value => seseSaveField(person.id, field, value), children }, person.id + "|" + field);
   function ot(S, M, T = {}) {
     if (!l && (d || f)) {
@@ -3074,15 +3065,7 @@ function Rh() {
               } : {})
             };
             if (ne === "task") delete Me.prerequisiteTrainingIds;
-            if (ne === "department") {
-              const cards = (L.versatilityCards || []).map(card => ({ o: card.o || "", v: String(card.v || "").trim() })).filter(card => card.v);
-              cards.forEach((card, index) => { if (cards.some((other, position) => position !== index && seseSameName(other.v, card.v))) throw Error("Carta de versatilidade repetida: " + card.v + "."); });
-              for (const card of cards) { const owner = e.departments.find(_ => _.id !== T && (_.versatilityCards || []).some(other => seseSameName(other, card.v))); if (owner) throw Error("A carta \u201C" + card.v + "\u201D j\xE1 pertence ao departamento " + owner.name + "."); }
-              const previousCards = e.departments.find(_ => _.id === T)?.versatilityCards || [];
-              for (const old of previousCards) if (!cards.some(card => card.o === old) && e.employees.some(_ => seseSameName(_.versatility, old))) throw Error("H\xE1 colaboradores na carta \u201C" + old + "\u201D. Altere a carta deles antes de remov\xEA-la.");
-              for (const card of cards) if (card.o && card.o !== card.v) M.employees = M.employees.map(_ => seseSameName(_.versatility, card.o) ? { ..._, versatility: card.v } : _);
-              Me.versatilityCards = cards.map(card => card.v);
-            }
+            if (ne === "department") Me.versatilityCards = [];
           }
           if (ne === "employee" && (Me = {
             id: T,
@@ -3131,7 +3114,27 @@ function Rh() {
           kind: M,
           id: T
         } = J;
-      if (M === "department" && (S.employees.some(Me => Me.departmentId === T) || S.tasks.some(Me => Me.departmentId === T))) throw Error("Mova os colaboradores e exclua as atividades antes de excluir este departamento.");
+      if (M === "department") {
+        const destination = seseMoveChoice(T);
+        const taskIds = new Set(S.tasks.filter(Me => Me.departmentId === T).map(Me => Me.id));
+        S.tasks = S.tasks.filter(Me => Me.departmentId !== T);
+        S.evaluations = S.evaluations.filter(Me => !taskIds.has(Me.taskId));
+        const people = new Set(S.employees.filter(Me => Me.departmentId === T).map(Me => Me.id));
+        if (people.size && destination === "__delete__") {
+          S.employees = S.employees.filter(Me => !people.has(Me.id));
+          S.evaluations = S.evaluations.filter(Me => !people.has(Me.employeeId));
+          S.trainings = S.trainings.filter(Me => !people.has(Me.employeeId));
+          S.absences = S.absences.filter(Me => !people.has(Me.employeeId));
+          if (people.has(D)) G(null);
+        } else if (people.size) {
+          let target = destination !== "__loose__" && S.departments.find(Me => Me.id === destination && Me.id !== T);
+          if (!target) target = S.departments.find(Me => Me.id !== T && seseIsLoose(Me));
+          if (!target) { target = { id: seseId(), name: "SEM DEPARTAMENTO", description: "", versatilityCards: [], prerequisiteTrainingIds: [], matrixCourses: [] }; S.departments.push(target); }
+          S.employees = S.employees.map(Me => Me.departmentId === T ? { ...Me, departmentId: target.id } : Me);
+        }
+        if (C === T) p("all");
+        setSeseMoveTo("__loose__");
+      }
       if(M === "catalog") {
         if(S.trainings.some(item=>item.templateId===T)||S.departmentTrainings.some(item=>item.trainingId===T)||S.departments.some(item=>(item.prerequisiteTrainingIds||[]).includes(T))||S.employees.some(item=>(item.prerequisiteTrainingIds||[]).includes(T))) throw Error("Este treinamento está em uso. Remova os pré-requisitos e vínculos antes de excluir; o histórico precisa ser preservado.");
         S.trainingCatalog=S.trainingCatalog.filter(item=>item.id!==T);await Ct(S);de(null);return;
@@ -3152,7 +3155,7 @@ function Rh() {
     }
   }
   let so = HA(e, C),
-    Fl = e.employees.filter(S => (C === "all" || S.departmentId === C) && (seseCard === "all" || seseSameName(S.versatility, seseCard)) && S.name.toLocaleLowerCase("pt-BR").includes(g.toLocaleLowerCase("pt-BR"))),
+    Fl = e.employees.filter(S => (C === "all" || S.departmentId === C) && S.name.toLocaleLowerCase("pt-BR").includes(g.toLocaleLowerCase("pt-BR"))),
     qn = S => e.departments.find(M => M.id === S)?.name || "\u2014",
     Ta = S => e.employees.find(M => M.id === S)?.name || "\u2014",
     xi = e.trainings.filter(S => (C === "all" || e.employees.find(M => M.id === S.employeeId)?.departmentId === C) && (w === "all" || S.employeeId === w) && (x === "all" || (x === "attention" ? ["expired", "week", "month"].includes(Vr(S.expiry).key) : Vr(S.expiry).key === x)) && seseMatches(S,g,[Ta(S.employeeId),...(e.trainingCatalog.find(item=>item.id===S.templateId)?.tags||[])].join(" "))).sort((S, M) => tsort === "name" ? (Ta(S.employeeId).localeCompare(Ta(M.employeeId), "pt-BR", { sensitivity: "base" }) || (S.title || "").localeCompare(M.title || "", "pt-BR", { sensitivity: "base" }) || (M.date || "").localeCompare(S.date || "")) : tsort === "dateDesc" ? (M.date || "").localeCompare(S.date || "") : tsort === "dateAsc" ? (S.date || "9999").localeCompare(M.date || "9999") : (S.expiry || "9999").localeCompare(M.expiry || "9999")),
@@ -3540,11 +3543,6 @@ function Rh() {
                   id: "all",
                   name: "Todos os departamentos"
                 }, ...e.departments]
-              }), false && (0, A.jsx)(Kl, {
-                label: "Filtrar carta de versatilidade",
-                value: seseCardChoices.some(S => S.id === seseCard) ? seseCard : "all",
-                onChange: setSeseCard,
-                options: seseCardChoices
               })]
             }), i === "dashboard" ? (0, A.jsxs)("span", {
               className: "date-label",
@@ -4098,7 +4096,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de polival\xEAncia"}),(0,A.jsx)("small",{children:(S.matrixCourses||[]).length?(S.matrixCourses.length+" curso"+(S.matrixCourses.length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Escolha os cursos e monte a matriz"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings sese-department-cards",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CARTAS DE VERSATILIDADE"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar carta de versatilidade ao departamento "+S.name,title:"Adicionar carta de versatilidade",onClick:()=>ot("department",S.id,{versatilityCards:[...(S.versatilityCards||[]).map(card=>({o:card,v:card})),{o:"",v:""}]}),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),(S.versatilityCards||[]).length?(0,A.jsx)("ul",{className:"sese-card-list",children:S.versatilityCards.map(card=>(0,A.jsxs)("li",{children:[(0,A.jsx)("span",{children:card}),(0,A.jsxs)("button",{type:"button",className:"text-link",title:"Ver os colaboradores desta carta",onClick:()=>{Ht("employees");p(S.id);setSeseCard(card);},children:[e.employees.filter(M=>seseSameName(M.versatility,card)).length," colab."]})]},card))}):(0,A.jsx)("p",{className:"muted",children:"Nenhuma carta cadastrada."})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do departamento "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de polival\xEAncia"}),(0,A.jsx)("small",{children:(S.matrixCourses||[]).length?(S.matrixCourses.length+" curso"+(S.matrixCourses.length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Escolha os cursos e monte a matriz"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do departamento "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO DEPARTAMENTO"
               }), (0, A.jsxs)("div", {
@@ -4248,8 +4246,8 @@ function Rh() {
                 className: "form-hint",
                 children: "Cadastre um departamento primeiro."
               })]
-            }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do departamento *" : "Nome *"), false && (0, A.jsx)(SeseCardsEditor, { value: L.versatilityCards || [], onChange: value => H(previous => ({ ...previous, versatilityCards: value })), count: card => e.employees.filter(S => seseSameName(S.versatility, card)).length }), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
-              children: [...["role", "shift", "versatility", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
+            }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do departamento *" : "Nome *"), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
+              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
                 className: "form-hint",
                 children: "A matriz passar\xE1 a exibir as atividades do novo departamento. O hist\xF3rico de treinamentos ser\xE1 preservado."
               })]
@@ -4332,8 +4330,8 @@ function Rh() {
           children: [(0, A.jsxs)(Dw, {
             children: ["Excluir ", J?.name, "?"]
           }), (0, A.jsxs)(kw, {
-            children: [J?.kind === "employee" ? "Os treinamentos e as avalia\xE7\xF5es deste colaborador tamb\xE9m ser\xE3o exclu\xEDdos." : J?.kind === "task" ? "As avalia\xE7\xF5es ligadas a esta atividade tamb\xE9m ser\xE3o exclu\xEDdas." : J?.kind === "department" ? "S\xF3 \xE9 poss\xEDvel excluir departamentos sem colaboradores e sem atividades vinculadas." : "Este registro ser\xE1 removido do hist\xF3rico.", " Esta a\xE7\xE3o n\xE3o pode ser desfeita."]
-          })]
+            children: [J?.kind === "employee" ? "Os treinamentos e as avalia\xE7\xF5es deste colaborador tamb\xE9m ser\xE3o exclu\xEDdos." : J?.kind === "task" ? "As avalia\xE7\xF5es ligadas a esta atividade tamb\xE9m ser\xE3o exclu\xEDdas." : J?.kind === "department" ? (() => { const people = e.employees.filter(S => S.departmentId === J.id).length, tasks = e.tasks.filter(S => S.departmentId === J.id).length; return [tasks ? (tasks === 1 ? "A atividade" : "As " + tasks + " atividades") + " deste departamento e as avalia\xE7\xF5es ligadas a ela" + (tasks === 1 ? "" : "s") + " ser\xE3o exclu\xEDdas." : "", people ? " " + (people === 1 ? "H\xE1 1 colaborador" : "H\xE1 " + people + " colaboradores") + " neste departamento: escolha abaixo o destino." : ""].join("").trim() || "O departamento ser\xE1 removido."; })() : "Este registro ser\xE1 removido do hist\xF3rico.", " Esta a\xE7\xE3o n\xE3o pode ser desfeita."]
+          }), J?.kind === "department" && e.employees.some(S => S.departmentId === J.id) && (0, A.jsxs)("label", { className: "field", style: { marginTop: 12 }, children: ["Colaboradores deste departamento", (0, A.jsx)("select", { value: seseMoveChoice(J.id), disabled: v, onChange: S => setSeseMoveTo(S.target.value), children: seseMoveOptions(J.id).map(S => (0, A.jsx)("option", { value: S.id, children: S.name }, S.id)) })] })]
         }), (0, A.jsxs)(Vw, {
           children: [(0, A.jsx)(qw, {
             disabled: v,
