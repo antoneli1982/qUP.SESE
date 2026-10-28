@@ -2813,7 +2813,7 @@ function Rh() {
     [b, z] = (0, Be.useState)(null),
     [L, H] = (0, Be.useState)({}),
     [K, ee] = (0, Be.useState)(""),
-    [J, de] = (0, Be.useState)(null), [seseMoveTo, setSeseMoveTo] = (0, Be.useState)("__loose__"), [sesePeopleDept, setSesePeopleDept] = (0, Be.useState)(null), [seseMoApplied, setSeseMoApplied] = (0, Be.useState)(false),
+    [J, de] = (0, Be.useState)(null), [seseMoveTo, setSeseMoveTo] = (0, Be.useState)("__loose__"), [sesePeopleDept, setSesePeopleDept] = (0, Be.useState)(null), [seseMoApplied, setSeseMoApplied] = (0, Be.useState)(false), [seseSectorFocus, setSeseSectorFocus] = (0, Be.useState)(null),
     [D, G] = (0, Be.useState)(null),
     [W, re] = (0, Be.useState)("light");
   (0, Be.useEffect)(() => {
@@ -3038,6 +3038,14 @@ function Rh() {
   }
   // Ao abrir, o cadastro é refeito automaticamente pela lista oficial (uma vez por sessão; o backup é baixado antes).
   const seseMoAuto = Be.useRef(false);
+  // Link Colaboradores -> Setores: abre a tela de setores já posicionada no setor clicado.
+  function seseGoSector(id) { setSeseDeptQuery(""); Ht("departments"); setSeseSectorFocus(id); }
+  Be.useEffect(() => {
+    if (i !== "departments" || !seseSectorFocus) return;
+    const scroll = setTimeout(() => { const card = document.getElementById("sese-sector-" + seseSectorFocus); card && card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
+    const clear = setTimeout(() => setSeseSectorFocus(null), 2600);
+    return () => { clearTimeout(scroll); clearTimeout(clear); };
+  }, [i, seseSectorFocus]);
   async function seseMoMark() { try { await window.__quapFirebase.markOfficial(SESE_MO_REF); setSeseMoApplied(true); } catch (err) { console.warn("N\xE3o foi poss\xEDvel marcar a lista oficial como aplicada.", err); } }
   // A lista oficial é aplicada uma única vez por versão; depois, setores e colaboradores ficam livres para edição.
   Be.useEffect(() => { if (l || d || f || v || seseMoAuto.current || !seseMoPlan) return; seseMoAuto.current = true; (async () => { let snap = null; try { snap = await window.__quapFirebase.read(); } catch {} if (snap && snap.moRef === SESE_MO_REF) { setSeseMoApplied(true); return; } if (seseMoPlan.pending) seseMoApply(); else seseMoMark(); })(); }, [seseMoPlan, l, d, f, v]);
@@ -4082,7 +4090,7 @@ function Rh() {
             }), Fl.length ? (0, A.jsxs)($u, {
               children: [(0, A.jsx)(ec, {
                 children: (0, A.jsxs)(wr, {
-                  children: [...["Matrícula", "Nome", "Admissão", "Cargo Atual", "Turno", "Responsável"].map(title=>(0,A.jsx)(Rt,{children:title},title)), (0,A.jsx)(Rt,{
+                  children: [...["Matrícula", "Nome", "Admissão", "Cargo Atual", "Turno", "Setor", "Responsável"].map(title=>(0,A.jsx)(Rt,{children:title},title)), (0,A.jsx)(Rt,{
                     children: (0, A.jsx)("span", {
                       className: "sr-only",
                       children: "A\xE7\xF5es"
@@ -4104,7 +4112,7 @@ function Rh() {
                           }), (0,A.jsx)(SeseAbsenceBadge,{data:e,employeeId:S.id})]
                         })]
                       }))
-                    }), ...["admissionDate", "role", "shift", "responsible"].map(field=>(0,A.jsx)(Lt,{children:seseCell(S,field)},field)), (0, A.jsx)(Lt, {
+                    }), ...["admissionDate", "role", "shift"].map(field=>(0,A.jsx)(Lt,{children:seseCell(S,field)},field)), (0,A.jsx)(Lt,{children:e.departments.some(M=>M.id===S.departmentId)?(0,A.jsxs)("button",{type:"button",className:"sese-sector-link","aria-label":"Abrir o setor "+qn(S.departmentId),title:"Abrir este setor na tela Setores",onClick:()=>seseGoSector(S.departmentId),children:[(0,A.jsx)(nl,{size:14}),(0,A.jsx)("span",{children:qn(S.departmentId)})]}):(0,A.jsx)("span",{className:"muted",children:"\u2014"})},"sector"), (0,A.jsx)(Lt,{children:seseCell(S,"responsible")},"responsible"), (0, A.jsx)(Lt, {
                       children: (0,A.jsxs)("div",{className:"actions",children:[(0,A.jsx)("button",{className:"icon-button","aria-label":"Rela\xE7\xE3o de treinamentos de "+S.name,title:"Rela\xE7\xE3o de treinamentos e % por setor",onClick:()=>setSeseRelId(S.id),children:(0,A.jsx)(SeseRelationIcon,{size:18})}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Adicionar treinamento para "+S.name,onClick:()=>ot("training",undefined,{employeeId:S.id}),children:(0,A.jsx)(gn,{size:18})}),(0,A.jsx)("button",{className:"icon-button","aria-label":"Afastamentos de "+S.name,onClick:()=>setSeseAbsenceId(S.id),children:(0,A.jsx)(Us,{size:18})}),Wl("employee",S.id,S.name)]})
                     })]
                   }, S.id);
@@ -4124,7 +4132,8 @@ function Rh() {
           }), i === "departments" && (0, A.jsxs)("div", {
             className: "department-grid",
             children: [e.departments.length > 0 && (0, A.jsxs)("div", { className: "full sese-dept-search", children: [(0, A.jsxs)("label", { className: "search", children: [(0, A.jsx)(Lu, { size: 18 }), (0, A.jsx)("input", { type: "search", "aria-label": "Buscar setor", placeholder: "Buscar setor ou curso\u2026", value: seseDeptQuery, onChange: S => setSeseDeptQuery(S.target.value) })] }), seseDeptQuery && (0, A.jsx)("button", { type: "button", className: "text-link", onClick: () => setSeseDeptQuery(""), children: "Limpar busca" }), (0, A.jsxs)("small", { children: [seseDeptFound.length, " de ", e.departments.length, " setores"] })] }), e.departments.length > 0 && !seseDeptFound.length && (0, A.jsx)("section", { className: "panel full sese-dept-none", children: "Nenhum setor encontrado para \u201C" + seseDeptQuery + "\u201D." }), seseDeptFound.map(S => (0, A.jsxs)("section", {
-              className: "panel department-card",
+              id: "sese-sector-" + S.id,
+              className: "panel department-card" + (seseSectorFocus === S.id ? " sese-sector-focus" : ""),
               children: [(0, A.jsxs)("div", {
                 className: "department-card-top",
                 children: [(0, A.jsx)("span", {
@@ -4671,6 +4680,14 @@ html[data-theme=dark] .sese-poly-open-arrow{color:#8fb8ff}
 .sese-dept-none{padding:1.5rem;font-size:.875rem;color:var(--muted-foreground,#64748b)}
 .sese-poly-top{display:inline-flex;align-items:center;gap:4px}
 .sese-poly-top-button{color:#0066ff}
+.sese-sector-link{display:inline-flex;align-items:center;gap:6px;max-width:16rem;padding:4px 8px;border-radius:6px;color:#0066ff;font-weight:600;font-size:.8125rem;text-align:left;line-height:1.25;background:rgba(0,102,255,.07)}
+.sese-sector-link:hover,.sese-sector-link:focus-visible{background:rgba(0,102,255,.14);text-decoration:underline}
+.sese-sector-link svg{flex:0 0 auto}
+.sese-sector-link span{overflow-wrap:anywhere}
+html[data-theme=dark] .sese-sector-link{color:#8fb8ff;background:rgba(143,184,255,.12)}
+.department-card{scroll-margin-top:24px}
+.sese-sector-focus{box-shadow:0 0 0 3px #0066ff,0 8px 24px rgba(0,102,255,.18)!important;transition:box-shadow .3s}
+html[data-theme=dark] .sese-sector-focus{box-shadow:0 0 0 3px #8fb8ff!important}
 .sese-people-button{color:#0066ff;gap:4px;padding:0 8px;width:auto}
 html[data-theme=dark] .sese-people-button{color:#8fb8ff}
 .sese-people-count{font-size:.8125rem;font-weight:700;line-height:1}
