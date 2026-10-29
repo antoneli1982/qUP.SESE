@@ -2529,7 +2529,7 @@ function SeseTrainingFields({
           children: template?.title || form.title
         })]
       })]
-    }), field('title', 'Nome do treinamento *', 'text', true), /*#__PURE__*/_jsxs("label", {
+    }), field('title', 'Nome do treinamento *', 'text', true), !!String(form.description || template?.description || '').trim() && /*#__PURE__*/_jsxs("label", {
       className: "field",
       children: ["Descri\xE7\xE3o / conte\xFAdo", /*#__PURE__*/_jsx("textarea", {
         maxLength: 3000,
@@ -2545,9 +2545,9 @@ function SeseTrainingFields({
     }), /*#__PURE__*/_jsxs("div", {
       className: "form-grid",
       children: [field('hours', 'Tempo total (HH:MM, opcional)', 'text'), field('date', 'Data de realização *', 'date', true)]
-    }), field('expiry', automaticExpiry ? 'Data de vencimento (automática)' : 'Data de vencimento (opcional)', 'date'), /*#__PURE__*/_jsx("p", {
+    }), (automaticExpiry || (editing && !!form.expiry)) && field('expiry', automaticExpiry ? 'Data de vencimento (automática)' : 'Data de vencimento registrada', 'date'), automaticExpiry && /*#__PURE__*/_jsx("p", {
       className: "form-hint",
-      children: automaticExpiry ? `Vencimento calculado pela data de realização + ${template.validityMonths} mês(es) de validade do curso.` : "Este curso não tem validade em meses definida. O vencimento é opcional."
+      children: `Vencimento calculado pela data de realização + ${template.validityMonths} mês(es) de validade do curso.`
     }), /*#__PURE__*/_jsxs("fieldset", {
       className: "sese-checks",
       children: [/*#__PURE__*/_jsx("legend", {
