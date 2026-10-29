@@ -2456,6 +2456,21 @@ function SesePicker({
     })
   });
 }
+function seseTrainingEmployee(data, form) {
+  if (form.employeeId) {
+    const employee = data.employees.find(item => item.id === form.employeeId);
+    if (!employee) throw Error("O colaborador vinculado não foi encontrado. Reabra o cadastro.");
+    return employee;
+  }
+  const registration = String(form.registration || "").trim();
+  const matches = registration ? data.employees.filter(item => String(item.registration || "").trim() === registration) : [];
+  if (matches.length !== 1) throw Error(matches.length ? "Há mais de um colaborador com essa matrícula." : "Não foi encontrado colaborador com essa matrícula.");
+  return matches[0];
+}
+function seseTrainingExpiry(data, form) {
+  const template = data.trainingCatalog.find(item => item.id === form.templateId);
+  return Number(template?.validityMonths) > 0 ? seseExpiry(form.date, template.validityMonths) : (form.expiry || "");
+}
 function SeseTrainingFields({
   data,
   form,
@@ -2463,6 +2478,8 @@ function SeseTrainingFields({
   editing
 }) {
   const template = data.trainingCatalog.find(item => item.id === form.templateId);
+  const employee = data.employees.find(item => item.id === form.employeeId);
+  const automaticExpiry = Number(template?.validityMonths) > 0;
   const changeFlag = (name, checked) => setForm(previous => {
     const next = {
       ...previous,
@@ -2486,7 +2503,8 @@ function SeseTrainingFields({
     children: [label, /*#__PURE__*/_jsx("input", {
       type: type,
       required: required,
-      value: form[name] || '',
+      value: name === 'expiry' ? seseTrainingExpiry(data, form) : form[name] || '',
+      readOnly: name === 'expiry' && automaticExpiry,
       min: type === 'number' ? '0.01' : name === 'expiry' ? form.date : undefined,
       max: name === 'date' ? Xo() : undefined,
       step: type === 'number' ? '0.01' : undefined,
@@ -2495,14 +2513,14 @@ function SeseTrainingFields({
       onChange: event => setForm(previous => ({
         ...previous,
         [name]: event.target.value,
-        ...(name === 'date' && template && !editing ? {
+        ...(name === 'date' && automaticExpiry ? {
           expiry: seseExpiry(event.target.value, template.validityMonths)
         } : {})
       }))
     })]
   });
   return /*#__PURE__*/_jsxs(_Fragment, {
-    children: [field('registration', 'Matrícula do colaborador *', 'text', true), form.templateId && /*#__PURE__*/_jsxs("div", {
+    children: [form.employeeId ? /*#__PURE__*/_jsx("div", { className: "sese-source", children: "Colaborador: " + (employee?.name || "Não encontrado") + (employee?.registration ? " · Matrícula " + employee.registration : "") }) : field('registration', 'Matrícula do colaborador *', 'text', true), form.templateId && /*#__PURE__*/_jsxs("div", {
       className: "sese-source",
       children: [/*#__PURE__*/_jsx(Fs, {
         size: 17
@@ -2527,9 +2545,9 @@ function SeseTrainingFields({
     }), /*#__PURE__*/_jsxs("div", {
       className: "form-grid",
       children: [field('hours', 'Tempo total (HH:MM, opcional)', 'text'), field('date', 'Data de realização *', 'date', true)]
-    }), field('expiry', 'Data de vencimento (opcional)', 'date'), /*#__PURE__*/_jsx("p", {
+    }), field('expiry', automaticExpiry ? 'Data de vencimento (automática)' : 'Data de vencimento (opcional)', 'date'), /*#__PURE__*/_jsx("p", {
       className: "form-hint",
-      children: "A validade do cadastro \xE9 aplicada \xE0 data de realiza\xE7\xE3o. O vencimento pode ser ajustado ou deixado em branco."
+      children: automaticExpiry ? `Vencimento calculado pela data de realização + ${template.validityMonths} mês(es) de validade do curso.` : "Este curso não tem validade em meses definida. O vencimento é opcional."
     }), /*#__PURE__*/_jsxs("fieldset", {
       className: "sese-checks",
       children: [/*#__PURE__*/_jsx("legend", {
@@ -3248,7 +3266,7 @@ function Rh() {
       if(!next.departmentTrainings.some(link=>link.departmentId===sesePicker.id&&link.trainingId===item.id)) next.departmentTrainings.push({id:seseId(),departmentId:sesePicker.id,trainingId:item.id});
       await Ct(next); setSesePicker(null);
     } else {
-      const employeeId=sesePicker.id||e.employees[0]?.id||"";
+      const employeeId=sesePicker.id||"";
       setSesePicker(null); ot("training",undefined,{employeeId,templateId:item.id,title:item.title,description:item.description,hours:seseFormatDuration(item.hours),tags:item.tags,expiry:seseExpiry(Xo(),item.validityMonths)});
     }
   }
@@ -3385,7 +3403,7 @@ function Rh() {
     if (S === "department") st.versatilityCards = (Me?.versatilityCards || []).map(card => ({ o: card, v: card }));
     H({
       departmentId: C !== "all" ? C : e.departments[0]?.id || "",
-      employeeId: e.employees[0]?.id || "",
+      employeeId: S === "training" ? "" : e.employees[0]?.id || "",
       date: Xo(),
       hours: "",
       expiry: "",
@@ -3448,18 +3466,17 @@ function Rh() {
             prerequisiteTrainingIds: [...new Set((L.prerequisiteTrainingIds || []).filter(Boolean))]
           }), ne === "training") {
             if (L.date > Xo()) throw Error("Registre a data em que o treinamento foi realizado.");
-            const employeeByRegistration = e.employees.find(item => (item.registration || "").trim() === (L.registration || "").trim());
-            if (!employeeByRegistration) throw Error("Não foi encontrado colaborador com essa matrícula.");
+            const employeeByRegistration = seseTrainingEmployee(e, L);
             Me = {
               id: T,
               employeeId: employeeByRegistration.id,
-              registration: (L.registration || employeeByRegistration.registration || "").trim(),
+              registration: (employeeByRegistration.registration || "").trim(),
               vwBadge: "",
               title: L.title.trim(),
               description: L.description.trim(),
               hours: seseParseDuration(L.hours, b.id ? e.trainings.find(item => item.id === b.id)?.hours : e.trainingCatalog.find(item => item.id === L.templateId)?.hours),
               date: L.date,
-              expiry: L.expiry,templateId:L.templateId||"",tags:L.tags||[],internal:!!L.internal,external:!!L.external,homologated:!!L.homologated
+              expiry: seseTrainingExpiry(e, L),templateId:L.templateId||"",tags:L.tags||[],internal:!!L.internal,external:!!L.external,homologated:!!L.homologated
             };
           }
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&Me.registration&&(item.registration===Me.registration||item.id==="MAT_"+Me.registration))) throw Error("Já existe um colaborador com essa matrícula.");
