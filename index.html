@@ -718,8 +718,7 @@ function seseDepartmentCourseMatrix(data, departmentId) {
   for (const employee of employees) for (const id of employee.prerequisiteTrainingIds || []) {
     if (catalog.has(id) && !requiredIds.includes(id) && !extras.has(id)) extras.set(id, { key: id, title: catalog.get(id).title, description: catalog.get(id).description || "", required: false });
   }
-  const allCatalog = [...catalog.values()].map(item => ({ key: item.id, title: item.title, description: item.description || "", required: requiredIds.includes(item.id) })).sort(byTitle);
-  const columns = allCatalog;
+  const columns = [...required, ...[...extras.values()].sort(byTitle)];
   const today = Xo();
   const status = (employee, column) => {
     const list = records.get(employee.id + "|" + column.key) || [];
@@ -854,11 +853,24 @@ function sesePrunePoly(data) {
     courseLevels: (data.courseLevels || []).filter(item => catalog.has(item.trainingId) && people.has(item.employeeId) && !seenLevels.has(item.employeeId + "|" + item.trainingId) && seenLevels.add(item.employeeId + "|" + item.trainingId))
   };
 }
+// Os requisitos são derivados do setor atual, sem criar treinamentos concluídos.
+function seseDepartmentMatrixLinks(data, departmentId) {
+  const department = data.departments.find(item => item.id === departmentId);
+  const catalog = new Set(data.trainingCatalog.map(item => item.id));
+  const links = new Map();
+  for (const link of department?.matrixCourses || []) {
+    if (catalog.has(link.trainingId) && !links.has(link.trainingId)) links.set(link.trainingId, { ...link });
+  }
+  for (const trainingId of seseDepartmentPrerequisiteIds(data, departmentId)) {
+    if (!links.has(trainingId)) links.set(trainingId, { trainingId, demand: 0 });
+  }
+  return [...links.values()];
+}
 function sesePolyMatrix(data, departmentId) {
   const department = data.departments.find(item => item.id === departmentId);
   if (!department) return null;
   const catalog = new Map(data.trainingCatalog.map(item => [item.id, item]));
-  const courses = (department.matrixCourses || []).filter(link => catalog.has(link.trainingId)).map(link => ({ id: link.trainingId, title: catalog.get(link.trainingId).title, demand: Number(link.demand) || 0 }));
+  const courses = seseDepartmentMatrixLinks(data, departmentId).map(link => ({ id: link.trainingId, title: catalog.get(link.trainingId).title, demand: Number(link.demand) || 0 }));
   const employees = data.employees.filter(item => item.departmentId === departmentId).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
   const ids = new Set(employees.map(item => item.id));
   const wanted = new Set(courses.map(item => item.id));
@@ -912,18 +924,19 @@ function SesePolyInput({ value = "", type = "text", label, onSave, disabled, min
 }
 function SesePolyCourses({ data, department, onClose, onSave }) {
   const current = (department.matrixCourses || []).map(item => item.trainingId);
-  const [selected, setSelected] = Be.useState(current.length ? current : seseDepartmentPrerequisiteIds(data, department.id));
+  const required = seseDepartmentPrerequisiteIds(data, department.id);
+  const [selected, setSelected] = Be.useState(() => seseDepartmentMatrixLinks(data, department.id).map(item => item.trainingId));
   const [query, setQuery] = Be.useState(""), [busy, setBusy] = Be.useState(false);
   Be.useEffect(() => { const onKey = event => { if (event.key === "Escape") onClose(); }; document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey); }, []);
   const catalog = [...data.trainingCatalog].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   const titles = new Map(catalog.map(item => [item.id, item.title]));
   const found = catalog.filter(item => seseMatches(item, query));
-  const toggle = id => setSelected(list => list.includes(id) ? list.filter(item => item !== id) : [...list, id]);
+  const toggle = id => { if (!required.includes(id)) setSelected(list => list.includes(id) ? list.filter(item => item !== id) : [...list, id]); };
   const move = (index, step) => setSelected(list => { const next = [...list], target = index + step; if (target < 0 || target >= next.length) return list; [next[index], next[target]] = [next[target], next[index]]; return next; });
-  const save = async () => { setBusy(true); const demand = new Map((department.matrixCourses || []).map(item => [item.trainingId, item.demand || 0])); const ok = await onSave(selected.map(id => ({ trainingId: id, demand: demand.get(id) || 0 }))); setBusy(false); if (ok) onClose(); };
+  const save = async () => { setBusy(true); const demand = new Map((department.matrixCourses || []).map(item => [item.trainingId, item.demand || 0])); const ok = await onSave(selected.filter(id => !required.includes(id) || current.includes(id)).map(id => ({ trainingId: id, demand: demand.get(id) || 0 }))); setBusy(false); if (ok) onClose(); };
   return /*#__PURE__*/_jsx("div", { className: "sese-poly-overlay", onMouseDown: event => { if (event.target === event.currentTarget) onClose(); }, children: /*#__PURE__*/_jsxs("div", { className: "sese-poly-dialog", role: "dialog", "aria-modal": "true", "aria-label": "Cursos da matriz de " + department.name, children: [
     /*#__PURE__*/_jsxs("header", { children: [
-      /*#__PURE__*/_jsxs("div", { children: [/*#__PURE__*/_jsx("h2", { children: "Cursos da matriz" }), /*#__PURE__*/_jsx("p", { children: "Escolha quais cursos do cadastro de treinamentos formam as colunas da matriz de " + department.name + " e em que ordem aparecem." })] }),
+      /*#__PURE__*/_jsxs("div", { children: [/*#__PURE__*/_jsx("h2", { children: "Cursos da matriz" }), /*#__PURE__*/_jsx("p", { children: "Os pré-requisitos de " + department.name + " aparecem automaticamente. Você pode incluir cursos adicionais. Para remover um requisito, edite o setor." })] }),
       /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button", "aria-label": "Fechar", onClick: onClose, children: "✕" })
     ] }),
     !catalog.length ? /*#__PURE__*/_jsx("p", { className: "sese-poly-empty", children: "Ainda n\xE3o h\xE1 cursos no Cadastro de treinamentos. Cadastre os cursos l\xE1 e volte para montar a matriz." }) : /*#__PURE__*/_jsxs("div", { className: "sese-poly-pick", children: [
@@ -931,22 +944,22 @@ function SesePolyCourses({ data, department, onClose, onSave }) {
         /*#__PURE__*/_jsxs("strong", { children: ["Cadastro de treinamentos (", catalog.length, ")"] }),
         /*#__PURE__*/_jsx("input", { className: "sese-poly-search", type: "search", placeholder: "Pesquisar curso ou #tag…", "aria-label": "Pesquisar curso", value: query, autoFocus: true, onChange: event => setQuery(event.target.value) }),
         /*#__PURE__*/_jsxs("div", { className: "sese-poly-list", children: [
-          found.map(item => /*#__PURE__*/_jsxs("label", { children: [/*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), onChange: () => toggle(item.id) }), /*#__PURE__*/_jsx("span", { children: item.title })] }, item.id)),
+          found.map(item => /*#__PURE__*/_jsxs("label", { children: [/*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), disabled: required.includes(item.id), onChange: () => toggle(item.id) }), /*#__PURE__*/_jsx("span", { children: item.title })] }, item.id)),
           !found.length && /*#__PURE__*/_jsx("p", { className: "muted", children: "Nenhum curso encontrado." })
         ] }),
         /*#__PURE__*/_jsxs("div", { className: "sese-poly-quick", children: [
           /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", onClick: () => setSelected(list => [...list, ...found.map(item => item.id).filter(id => !list.includes(id))]), children: "Marcar os listados" }),
-          /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", onClick: () => setSelected([]), children: "Desmarcar todos" })
+          /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", onClick: () => setSelected(required), children: "Desmarcar adicionais" })
         ] })
       ] }),
       /*#__PURE__*/_jsxs("div", { children: [
         /*#__PURE__*/_jsxs("strong", { children: ["Colunas da matriz (", selected.length, ")"] }),
         /*#__PURE__*/_jsxs("div", { className: "sese-poly-list sese-poly-order", children: [
           selected.map((id, index) => /*#__PURE__*/_jsxs("div", { children: [
-            /*#__PURE__*/_jsxs("span", { children: [index + 1, ". ", titles.get(id) || id] }),
+            /*#__PURE__*/_jsxs("span", { children: [index + 1, ". ", titles.get(id) || id, required.includes(id) ? " (pré-requisito)" : ""] }),
             /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button", disabled: index === 0, "aria-label": "Mover " + (titles.get(id) || "") + " para cima", onClick: () => move(index, -1), children: "↑" }),
             /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button", disabled: index === selected.length - 1, "aria-label": "Mover " + (titles.get(id) || "") + " para baixo", onClick: () => move(index, 1), children: "↓" }),
-            /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button danger", "aria-label": "Remover " + (titles.get(id) || "") + " da matriz", onClick: () => toggle(id), children: "✕" })
+            /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button danger", disabled: required.includes(id), title: required.includes(id) ? "Pré-requisito vinculado ao setor" : "Remover curso adicional", "aria-label": "Remover " + (titles.get(id) || "") + " da matriz", onClick: () => toggle(id), children: "✕" })
           ] }, id)),
           !selected.length && /*#__PURE__*/_jsx("p", { className: "muted", children: "Marque os cursos ao lado para criar as colunas." })
         ] })
@@ -1008,7 +1021,7 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
     /*#__PURE__*/_jsxs("div", { className: "sese-poly-toolbar", children: [
       /*#__PURE__*/_jsxs("div", { children: [
         /*#__PURE__*/_jsxs("h2", { className: "sese-poly-heading", children: [/*#__PURE__*/_jsx("span", { className: "sese-poly-open-icon", children: /*#__PURE__*/_jsx(dn, { size: 20 }) }), "Matriz de polival\xEAncia \u2014 " + department.name] }),
-        /*#__PURE__*/_jsx("p", { children: "Voc\xEA define os cursos de cada matriz. O n\xEDvel \xE9 calculado pelos dias desde o curso e pode ser ajustado clicando no c\xEDrculo." })
+        /*#__PURE__*/_jsx("p", { children: "Pré-requisitos e colaboradores são vinculados automaticamente ao setor atual. As capacitações registradas acompanham o colaborador nas mudanças de setor. Curso obrigatório sem capacitação permanece no nível 0." })
       ] }),
       /*#__PURE__*/_jsxs("div", { className: "sese-poly-actions", children: [
         /*#__PURE__*/_jsx("select", { className: "sese-poly-select", "aria-label": "Setor da matriz", value: department.id, onChange: event => onDepartment(event.target.value), children: departments.map(item => /*#__PURE__*/_jsx("option", { value: item.id, children: item.name }, item.id)) }),
@@ -4411,7 +4424,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de polival\xEAncia"}),(0,A.jsx)("small",{children:(S.matrixCourses||[]).length?(S.matrixCourses.length+" curso"+(S.matrixCourses.length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Escolha os cursos e monte a matriz"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do setor "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de polival\xEAncia"}),(0,A.jsx)("small",{children:seseDepartmentMatrixLinks(e,S.id).length?(seseDepartmentMatrixLinks(e,S.id).length+" curso"+(seseDepartmentMatrixLinks(e,S.id).length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Defina os pré-requisitos do setor ou inclua cursos adicionais"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do setor "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use editar para cadastrar os cursos obrigatórios."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO SETOR"
               }), (0, A.jsxs)("div", {
@@ -4564,7 +4577,7 @@ function Rh() {
             }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do setor *" : "Nome *"), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
               children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
                 className: "form-hint",
-                children: "A matriz passar\xE1 a exibir as atividades do novo setor. O hist\xF3rico de treinamentos ser\xE1 preservado."
+                children: "Ao salvar, o colaborador passa para a matriz do novo setor, com os pré-requisitos e pendências dessa área. Seus treinamentos e níveis por curso são preservados."
               })]
             }), (b?.kind === "department" || b?.kind === "task") && (0, A.jsxs)("label", {
               className: "field",
@@ -4577,7 +4590,7 @@ function Rh() {
                   description: S.target.value
                 }))
               })]
-            }), b?.kind === "department" && (0,A.jsx)(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO DO SETOR", hint: "Cada curso selecionado será exigido para calcular a aptidão dos colaboradores neste setor." }), b?.kind === "training" && (0,A.jsx)(SeseTrainingFields,{data:e,form:L,setForm:H,editing:!!b.id}), b?.kind === "evaluation" && (0, A.jsxs)(A.Fragment, {
+            }), b?.kind === "department" && (0,A.jsx)(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO DO SETOR", hint: "Cada curso selecionado aparecerá automaticamente na matriz para todos os colaboradores deste setor, com a capacitação já registrada ou a pendência." }), b?.kind === "training" && (0,A.jsx)(SeseTrainingFields,{data:e,form:L,setForm:H,editing:!!b.id}), b?.kind === "evaluation" && (0, A.jsxs)(A.Fragment, {
               children: [(0, A.jsxs)("div", {
                 className: "evaluation-person",
                 children: [(0, A.jsx)(JA, {
