@@ -110,6 +110,9 @@
 .sese-prerequisite-option span{min-width:0;white-space:normal;overflow-wrap:anywhere}
 .sese-prerequisite-option:focus-within{outline:2px solid #2563eb;outline-offset:-2px}
 </style><style id="sese-dark-prerequisites-global">
+.side-note.sese-sync-compact{display:flex;align-items:center;gap:5px;margin:0;padding:3px 0;font-size:10px;line-height:1.3;opacity:.7;border:0;background:transparent;min-height:0}
+.side-note.sese-sync-compact svg{width:12px;height:12px;flex:0 0 12px}
+
 .form-dialog .sese-prerequisite-editor{background:#18253a!important;border-color:#354a68!important;color:#e7f0ff!important;color-scheme:dark}
 .form-dialog .sese-prerequisite-editor .sese-section-heading strong{color:#d7e7ff!important}
 .form-dialog .sese-prerequisite-editor .form-hint,.form-dialog .sese-prerequisite-editor .muted,.form-dialog .sese-prerequisite-actions{color:#b9cce5!important}
@@ -3713,16 +3716,9 @@ function Rh() {
         })]
       }), (0, A.jsxs)(Ew, {
         children: [(0, A.jsxs)("div", {
-          className: "side-note",
-          children: [(0, A.jsx)(sl, {
-            size: 20
-          }), (0, A.jsxs)("div", {
-            children: [(0, A.jsx)("strong", {
-              children: "Dados sincronizados"
-            }), (0, A.jsx)("p", {
-              children: "Salvo no Firebase. Exporte seu backup."
-            })]
-          })]
+          className: "side-note sese-sync-compact",
+          title: "Dados sincronizados",
+          children: [(0, A.jsx)(sl, { size: 12 }), (0, A.jsx)("span", { children: "Dados sincronizados" })]
         }), (0, A.jsxs)("button", {
           className: "demo-button",
           onClick: Gl,
