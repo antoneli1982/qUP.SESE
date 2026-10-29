@@ -2045,7 +2045,10 @@ function SeseCatalog({
   items,
   onEdit,
   onDelete,
-  disabled
+  disabled,
+  onPeople,
+  onAddPeople,
+  peopleCount
 }) {
   const [query, setQuery] = Be.useState('');
   const found = items.filter(item => seseMatches(item, query)).sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
@@ -2134,7 +2137,21 @@ function SeseCatalog({
             }), /*#__PURE__*/_jsx("td", {
               children: /*#__PURE__*/_jsxs("div", {
                 className: "actions",
-                children: [/*#__PURE__*/_jsx("button", {
+                children: [onPeople && /*#__PURE__*/_jsxs("button", {
+                  type: "button",
+                  className: "icon-button sese-people-button",
+                  "aria-label": "Ver quem fez " + item.title,
+                  title: "Quem fez este curso",
+                  onClick: () => onPeople(item),
+                  children: [_jsx(il, { size: 18 }), _jsx("span", { className: "sese-people-count", children: peopleCount ? peopleCount(item) : 0 })]
+                }), onAddPeople && /*#__PURE__*/_jsx("button", {
+                  type: "button",
+                  className: "icon-button sese-people-button",
+                  "aria-label": "Cadastrar v\xE1rias pessoas em " + item.title,
+                  title: "Cadastrar v\xE1rias pessoas neste curso",
+                  onClick: () => onAddPeople(item),
+                  children: _jsx(SeseUserPlusIcon, { size: 18 })
+                }), /*#__PURE__*/_jsx("button", {
                   className: "icon-button",
                   "aria-label": 'Editar cadastro ' + item.title,
                   disabled: disabled,
@@ -2536,6 +2553,215 @@ function SeseDepartmentPeople({ data, departmentId, onClose, onOpenList, onEdit 
     })
   });
 }
+// SESE: treinamentos realizados — quem fez cada curso e cadastro de várias pessoas de uma vez.
+function SeseUserPlusIcon({ size = 18 }) {
+  return Be.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    Be.createElement("circle", { cx: 9, cy: 7, r: 4 }),
+    Be.createElement("path", { d: "M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" }),
+    Be.createElement("path", { d: "M19 8v6" }),
+    Be.createElement("path", { d: "M16 11h6" }));
+}
+function seseTitleKey(title) {
+  return seseText(title).trim().replace(/\s+/g, " ");
+}
+// Mesmo curso = mesmo item do cadastro de treinamentos (ou, sem vínculo, o mesmo nome).
+function seseCourseKeyer(data) {
+  const byTitle = new Map();
+  for (const item of data.trainingCatalog || []) {
+    const key = seseTitleKey(item.title);
+    if (key && !byTitle.has(key)) byTitle.set(key, item.id);
+  }
+  return record => {
+    if (record.templateId) return "t:" + record.templateId;
+    const key = seseTitleKey(record.title);
+    return byTitle.has(key) ? "t:" + byTitle.get(key) : "n:" + key;
+  };
+}
+function seseCourseCounts(data) {
+  const keyOf = seseCourseKeyer(data), people = new Map();
+  for (const record of data.trainings) {
+    const key = keyOf(record);
+    if (!people.has(key)) people.set(key, new Set());
+    people.get(key).add(record.employeeId);
+  }
+  return new Map([...people].map(([key, set]) => [key, set.size]));
+}
+function seseAddDays(date, days) {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+function seseCourseFromRecord(data, record) {
+  const key = seseCourseKeyer(data)(record);
+  const template = key.startsWith("t:") ? data.trainingCatalog.find(item => "t:" + item.id === key) : null;
+  let validityMonths = Number(template?.validityMonths) || null, expiryDays = null;
+  if (!validityMonths && record.expiry && record.date) {
+    const [y1, m1] = record.date.split("-").map(Number), [y2, m2] = record.expiry.split("-").map(Number);
+    const months = (y2 - y1) * 12 + (m2 - m1);
+    if (months > 0 && seseExpiry(record.date, months) === record.expiry) validityMonths = months;
+    else expiryDays = Math.round((Date.parse(record.expiry) - Date.parse(record.date)) / 864e5);
+  }
+  return {
+    key, templateId: record.templateId || template?.id || "", title: record.title, description: record.description || "",
+    hours: record.hours ?? template?.hours ?? null, tags: record.tags || [], internal: !!record.internal, external: !!record.external,
+    homologated: !!record.homologated, date: record.date || "", validityMonths, expiryDays
+  };
+}
+function seseCourseFromCatalog(item) {
+  return {
+    key: "t:" + item.id, templateId: item.id, title: item.title, description: item.description || "", hours: item.hours ?? null,
+    tags: item.tags || [], internal: false, external: false, homologated: false, date: "",
+    validityMonths: Number(item.validityMonths) || null, expiryDays: null
+  };
+}
+function seseByName(a, b) {
+  return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+}
+function seseByRegistration(a, b) {
+  const ra = String(a.registration || "").trim(), rb = String(b.registration || "").trim();
+  if (!ra !== !rb) return ra ? -1 : 1;
+  return ra.localeCompare(rb, "pt-BR", { numeric: true, sensitivity: "base" }) || seseByName(a, b);
+}
+function SeseSortToggle({ value, onChange }) {
+  const h = Be.createElement;
+  return h("div", { className: "sese-sort-toggle", role: "group", "aria-label": "Ordenar lista" },
+    h("button", { type: "button", "aria-pressed": value === "name", className: value === "name" ? "active" : "", onClick: () => onChange("name") }, "Nome (A–Z)"),
+    h("button", { type: "button", "aria-pressed": value === "registration", className: value === "registration" ? "active" : "", onClick: () => onChange("registration") }, "Matr\xEDcula"));
+}
+// Quem fez o curso: aberto pelo ícone de pessoas em Treinamentos realizados.
+function SeseCoursePeople({ data, course, onClose, onAdd }) {
+  const h = Be.createElement;
+  const [query, setQuery] = Be.useState("");
+  const [sort, setSort] = Be.useState("name");
+  const keyOf = seseCourseKeyer(data);
+  const groups = new Map();
+  for (const record of data.trainings) {
+    if (keyOf(record) !== course.key) continue;
+    const group = groups.get(record.employeeId) || { count: 0, last: null };
+    group.count++;
+    if (!group.last || (record.date || "") > (group.last.date || "")) group.last = record;
+    groups.set(record.employeeId, group);
+  }
+  const deptName = id => data.departments.find(item => item.id === id)?.name || "";
+  const all = data.employees.filter(item => groups.has(item.id)).sort(sort === "registration" ? seseByRegistration : seseByName);
+  const term = seseText(query).trim();
+  const people = term ? all.filter(item => seseText([item.name, item.registration, item.role, deptName(item.departmentId)].join(" ")).includes(term)) : all;
+  return _jsx(TA, {
+    open: true,
+    onOpenChange: open => !open && onClose(),
+    children: _jsxs(NA, {
+      className: "form-dialog sese-people-dialog sese-course-dialog",
+      children: [_jsxs(YA, { children: [
+        _jsx(UA, { children: "Quem fez: " + course.title }),
+        _jsx(QA, { children: all.length ? (all.length === 1 ? "1 pessoa fez" : all.length + " pessoas fizeram") + " este curso." : "Ningu\xE9m registrou este curso ainda." })
+      ] }),
+      all.length > 0 && h("div", { className: "sese-course-tools" },
+        h("label", { className: "search sese-people-search" }, h(Lu, { size: 18 }), h("input", { type: "search", "aria-label": "Buscar quem fez o curso", placeholder: "Buscar por nome, matr\xEDcula, setor…", value: query, onChange: event => setQuery(event.target.value) })),
+        h(SeseSortToggle, { value: sort, onChange: setSort })),
+      all.length ? (people.length ? h("ul", { className: "sese-people-list" }, people.map(item => {
+        const group = groups.get(item.id), status = Vr(group.last.expiry);
+        return h("li", { key: item.id },
+          h("span", { className: "sese-people-avatar" }, h(SesePersonIcon, { size: 16 })),
+          h("span", { className: "sese-people-info" },
+            h("strong", null, item.name),
+            h("small", null, [item.registration ? "Matr\xEDcula " + item.registration : "Sem matr\xEDcula", deptName(item.departmentId)].filter(Boolean).join(" \xB7 ")),
+            h("small", null, "Realizado em " + Ql(group.last.date) + (group.last.expiry ? " \xB7 vence " + Ql(group.last.expiry) : "") + (group.count > 1 ? " \xB7 " + group.count + " registros" : ""))),
+          h(vi, { tone: status.tone }, status.label));
+      })) : h("p", { className: "muted" }, "Ningu\xE9m encontrado para “" + query + "”.")) : h("p", { className: "muted" }, "Use “Cadastrar pessoas” para registrar quem fez este curso."),
+      h("div", { className: "sese-people-footer" },
+        onAdd ? h("button", { type: "button", className: "btn outline", onClick: onAdd }, h(SeseUserPlusIcon, { size: 17 }), "Cadastrar pessoas") : null,
+        h("button", { type: "button", className: "btn primary", onClick: onClose }, "Fechar"))]
+    })
+  });
+}
+// Cadastro em lote: lista de colaboradores (A–Z ou matrícula); um clique registra o curso como realizado.
+function SeseCourseBatch({ data, course, busy, locked, onSave, onClose, onPeople }) {
+  const h = Be.createElement;
+  const today = Xo();
+  const autoExpiry = value => !value ? "" : course.validityMonths ? seseExpiry(value, course.validityMonths) : course.expiryDays != null && course.expiryDays >= 0 ? seseAddDays(value, course.expiryDays) : "";
+  const firstDate = course.date && course.date <= today ? course.date : today;
+  const [date, setDate] = Be.useState(firstDate);
+  const [hours, setHours] = Be.useState(seseFormatDuration(course.hours));
+  const [expiry, setExpiry] = Be.useState(autoExpiry(firstDate));
+  const [expiryTouched, setExpiryTouched] = Be.useState(false);
+  const [query, setQuery] = Be.useState("");
+  const [sort, setSort] = Be.useState("name");
+  const [dept, setDept] = Be.useState("all");
+  const [saving, setSaving] = Be.useState(null);
+  const [error, setError] = Be.useState("");
+  const [confirmAll, setConfirmAll] = Be.useState(false);
+  const keyOf = seseCourseKeyer(data);
+  const records = data.trainings.filter(record => keyOf(record) === course.key);
+  const doneOnDate = new Set(records.filter(record => record.date === date).map(record => record.employeeId));
+  const lastBy = new Map();
+  for (const record of records) {
+    const previous = lastBy.get(record.employeeId);
+    if (!previous || (record.date || "") > (previous.date || "")) lastBy.set(record.employeeId, record);
+  }
+  const departments = [...data.departments].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  const deptName = id => data.departments.find(item => item.id === id)?.name || "";
+  const term = seseText(query).trim();
+  const list = data.employees.filter(item => (dept === "all" || item.departmentId === dept) && (!term || seseText([item.name, item.registration, item.role, deptName(item.departmentId)].join(" ")).includes(term))).sort(sort === "registration" ? seseByRegistration : seseByName);
+  const pending = list.filter(item => !doneOnDate.has(item.id));
+  const disabled = busy || locked || !!saving;
+  async function add(ids, tag) {
+    if (!ids.length || disabled) return;
+    setError(""); setSaving(tag);
+    try { await onSave(ids, { date, hours, expiry }); }
+    catch (err) { setError(err instanceof Error ? err.message : "N\xE3o foi poss\xEDvel salvar. Tente novamente."); }
+    finally { setSaving(null); setConfirmAll(false); }
+  }
+  const changeDate = value => {
+    setDate(value); setConfirmAll(false);
+    if (!expiryTouched) setExpiry(autoExpiry(value));
+  };
+  return _jsx(TA, {
+    open: true,
+    onOpenChange: open => !open && onClose(),
+    children: _jsxs(NA, {
+      className: "form-dialog sese-people-dialog sese-course-dialog sese-batch-dialog",
+      children: [_jsxs(YA, { children: [
+        _jsx(UA, { children: "Cadastrar pessoas: " + course.title }),
+        _jsx(QA, { children: "Clique em Adicionar para registrar o curso como realizado. " + (doneOnDate.size ? (doneOnDate.size === 1 ? "1 pessoa registrada" : doneOnDate.size + " pessoas registradas") + " em " + Ql(date) + "." : "Ningu\xE9m registrado em " + Ql(date) + " ainda.") })
+      ] }),
+      h("div", { className: "sese-batch-fields" },
+        h("label", { className: "field" }, "Realizado em", h("input", { type: "date", value: date, max: today, required: true, onChange: event => changeDate(event.target.value) })),
+        h("label", { className: "field" }, "Tempo total (HH:MM)", h("input", { ...seseDurationInput, value: hours, onChange: event => setHours(event.target.value) })),
+        h("label", { className: "field" }, "Vencimento", h("input", { type: "date", value: expiry, min: date || undefined, onChange: event => { setExpiryTouched(true); setExpiry(event.target.value); } }))),
+      h("div", { className: "sese-course-tools" },
+        h("label", { className: "search sese-people-search" }, h(Lu, { size: 18 }), h("input", { type: "search", "aria-label": "Buscar colaborador", placeholder: "Buscar por nome, matr\xEDcula, setor…", value: query, onChange: event => { setQuery(event.target.value); setConfirmAll(false); } })),
+        h("select", { className: "sese-batch-select", "aria-label": "Filtrar por setor", value: dept, onChange: event => { setDept(event.target.value); setConfirmAll(false); } },
+          h("option", { value: "all" }, "Todos os setores"),
+          departments.map(item => h("option", { key: item.id, value: item.id }, item.name))),
+        h(SeseSortToggle, { value: sort, onChange: setSort })),
+      h("div", { className: "sese-batch-bar" },
+        h("small", { className: "muted" }, list.length + (list.length === 1 ? " colaborador" : " colaboradores") + " \xB7 " + pending.length + " a adicionar"),
+        pending.length > 1 && (confirmAll
+          ? h("span", { className: "sese-batch-confirm" },
+            h("button", { type: "button", className: "btn primary", disabled, onClick: () => add(pending.map(item => item.id), "__all__") }, saving === "__all__" ? "Salvando…" : "Confirmar " + pending.length + " pessoas"),
+            h("button", { type: "button", className: "btn outline", disabled: !!saving, onClick: () => setConfirmAll(false) }, "Cancelar"))
+          : h("button", { type: "button", className: "btn outline", disabled, onClick: () => setConfirmAll(true) }, h(SeseUserPlusIcon, { size: 17 }), "Adicionar todos da lista (" + pending.length + ")"))),
+      locked && h("p", { className: "sese-batch-error" }, "A edi\xE7\xE3o est\xE1 bloqueada no momento. Aguarde a sincroniza\xE7\xE3o com o Firebase."),
+      error && h("p", { className: "sese-batch-error", role: "alert" }, error),
+      list.length ? h("ul", { className: "sese-people-list sese-batch-list" }, list.map(item => {
+        const done = doneOnDate.has(item.id), last = lastBy.get(item.id);
+        return h("li", { key: item.id, className: done ? "is-done" : "" },
+          h("span", { className: "sese-people-avatar" }, done ? h(un, { size: 16 }) : h(SesePersonIcon, { size: 16 })),
+          h("span", { className: "sese-people-info" },
+            h("strong", null, item.name),
+            h("small", null, [item.registration ? "Matr\xEDcula " + item.registration : "Sem matr\xEDcula", deptName(item.departmentId)].filter(Boolean).join(" \xB7 ")),
+            !done && last ? h("small", { className: "sese-batch-last" }, "J\xE1 fez em " + Ql(last.date)) : null,
+            h(SeseAbsenceBadge, { data, employeeId: item.id })),
+          done
+            ? h(vi, { tone: "green" }, "✓ Realizado")
+            : h("button", { type: "button", className: "btn outline sese-batch-add", disabled, "aria-label": "Adicionar " + item.name + " como realizado", onClick: () => add([item.id], item.id) },
+              saving === item.id ? "Salvando…" : [h(SeseUserPlusIcon, { key: "i", size: 16 }), "Adicionar"]));
+      })) : h("p", { className: "muted" }, term ? "Ningu\xE9m encontrado para “" + query + "”." : "Nenhum colaborador neste setor."),
+      h("div", { className: "sese-people-footer" },
+        onPeople ? h("button", { type: "button", className: "btn outline", onClick: onPeople }, h(il, { size: 17 }), "Ver quem fez") : null,
+        h("button", { type: "button", className: "btn primary", disabled: !!saving, onClick: onClose }, "Concluir"))]
+    })
+  });
+}
 function SeseRelationIcon({ size = 18 }) {
   return Be.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
     Be.createElement("rect", { x: 8, y: 2, width: 8, height: 4, rx: 1 }),
@@ -2823,7 +3049,7 @@ function Rh() {
     [b, z] = (0, Be.useState)(null),
     [L, H] = (0, Be.useState)({}),
     [K, ee] = (0, Be.useState)(""),
-    [J, de] = (0, Be.useState)(null), [seseMoveTo, setSeseMoveTo] = (0, Be.useState)("__loose__"), [sesePeopleDept, setSesePeopleDept] = (0, Be.useState)(null), [seseMoApplied, setSeseMoApplied] = (0, Be.useState)(false), [seseSectorFocus, setSeseSectorFocus] = (0, Be.useState)(null),
+    [J, de] = (0, Be.useState)(null), [seseMoveTo, setSeseMoveTo] = (0, Be.useState)("__loose__"), [sesePeopleDept, setSesePeopleDept] = (0, Be.useState)(null), [seseCourseView, setSeseCourseView] = (0, Be.useState)(null), [seseMoApplied, setSeseMoApplied] = (0, Be.useState)(false), [seseSectorFocus, setSeseSectorFocus] = (0, Be.useState)(null),
     [D, G] = (0, Be.useState)(null),
     [W, re] = (0, Be.useState)("light");
   (0, Be.useEffect)(() => {
@@ -2970,6 +3196,27 @@ function Rh() {
     }
   }
   async function seseUnlink(linkId) {try {const next=structuredClone(e);next.departmentTrainings=next.departmentTrainings.filter(item=>item.id!==linkId);await Ct(next);}catch(err){El.error(err.message);}}
+  async function seseBatchTraining(course, ids, fields) {
+    if (!fields.date) throw Error("Informe a data em que o treinamento foi realizado.");
+    if (fields.date > Xo()) throw Error("Registre a data em que o treinamento foi realizado (n\xE3o pode ser futura).");
+    if (fields.expiry && fields.expiry < fields.date) throw Error("O vencimento deve ser igual ou posterior ao treinamento.");
+    const hours = seseParseDuration(fields.hours, course.hours);
+    const next = structuredClone(e), keyOf = seseCourseKeyer(next);
+    let added = 0;
+    for (const id of ids) {
+      const person = next.employees.find(item => item.id === id);
+      if (!person) continue;
+      if (next.trainings.some(item => item.employeeId === id && item.date === fields.date && keyOf(item) === course.key)) continue;
+      next.trainings.push({
+        id: seseId(), employeeId: id, registration: String(person.registration || "").trim(), vwBadge: "",
+        title: course.title, description: course.description || "", hours, date: fields.date, expiry: fields.expiry || "",
+        templateId: course.templateId || "", tags: course.tags || [], internal: !!course.internal, external: !!course.external, homologated: !!course.homologated
+      });
+      added++;
+    }
+    if (added) await Ct(next);
+    return added;
+  }
   async function seseSaveAbsence(action,item) {
     const next=structuredClone(e);
     if(action==='start') {
@@ -3287,6 +3534,7 @@ function Rh() {
       })]
     });
   function wa(S, M = !1) {
+    const seseKeyOf = seseCourseKeyer(e), seseCounts = M ? null : seseCourseCounts(e);
     return S.length ? (0, A.jsxs)($u, {
       children: [(0, A.jsx)(ec, {
         children: (0, A.jsxs)(wr, {
@@ -3340,7 +3588,7 @@ function Rh() {
               children: (0, A.jsx)(fa, {
                 size: 18
               })
-            }) : Wl("training", T.id, T.title)
+            }) : (0,A.jsxs)("div",{className:"sese-train-actions",children:[(0,A.jsxs)("button",{type:"button",className:"icon-button sese-people-button","aria-label":"Ver quem fez "+T.title,title:"Quem fez este curso",onClick:()=>setSeseCourseView({mode:"people",course:seseCourseFromRecord(e,T)}),children:[(0,A.jsx)(il,{size:18}),(0,A.jsx)("span",{className:"sese-people-count",children:seseCounts.get(seseKeyOf(T))||0})]}),(0,A.jsx)("button",{type:"button",className:"icon-button sese-people-button","aria-label":"Cadastrar v\xE1rias pessoas em "+T.title,title:"Cadastrar v\xE1rias pessoas neste curso",onClick:()=>setSeseCourseView({mode:"add",course:seseCourseFromRecord(e,T)}),children:(0,A.jsx)(SeseUserPlusIcon,{size:18})}),Wl("training", T.id, T.title)]})
           })]
         }, T.id))
       })]
@@ -4079,7 +4327,7 @@ function Rh() {
               title: "Nenhuma compet\xEAncia em treinamento",
               text: "N\xE3o h\xE1 avalia\xE7\xF5es no n\xEDvel 50% nesta sele\xE7\xE3o."
             })]
-          }), i === "catalog" && (0,A.jsx)(SeseCatalog,{items:e.trainingCatalog,onEdit:setSeseEdit,onDelete:item=>de({kind:"catalog",id:item.id,name:item.title}),disabled:v||(!l&&(d||!!f))}), i === "employees" && (0, A.jsxs)("section", {
+          }), i === "catalog" && (0,A.jsx)(SeseCatalog,{items:e.trainingCatalog,onPeople:item=>setSeseCourseView({mode:"people",course:seseCourseFromCatalog(item)}),onAddPeople:item=>setSeseCourseView({mode:"add",course:seseCourseFromCatalog(item)}),peopleCount:(()=>{const counts=seseCourseCounts(e);return item=>counts.get("t:"+item.id)||0;})(),onEdit:setSeseEdit,onDelete:item=>de({kind:"catalog",id:item.id,name:item.title}),disabled:v||(!l&&(d||!!f))}), i === "employees" && (0, A.jsxs)("section", {
             className: "panel",
             children: [(0, A.jsx)("div", {
               className: "panel-heading",
@@ -4579,6 +4827,8 @@ function Rh() {
     sesePicker && (0,A.jsx)(SesePicker,{items:e.trainingCatalog,context:sesePicker.kind==='department'?qn(sesePicker.id):sesePicker.id?Ta(sesePicker.id):'Colaborador',busy:v,linked:sesePicker.kind==='department'?e.departmentTrainings.filter(item=>item.departmentId===sesePicker.id).map(item=>item.trainingId):[],onClose:()=>setSesePicker(null),onSelect:seseChoose,onCatalog:()=>{setSesePicker(null);Ht('catalog');}}),
     seseRelId && (0,A.jsx)(SeseCourseRelation,{data:e,employeeId:seseRelId,onClose:()=>setSeseRelId(null)}),
     sesePeopleDept && e.departments.some(S => S.id === sesePeopleDept) && (0,A.jsx)(SeseDepartmentPeople,{data:e,departmentId:sesePeopleDept,onClose:()=>setSesePeopleDept(null),onOpenList:()=>{const id=sesePeopleDept;setSesePeopleDept(null);Ht("employees");p(id);},onEdit:v||(!l&&(d||!!f))?null:id=>{setSesePeopleDept(null);ot("employee",id);}}),
+    seseCourseView && seseCourseView.mode==="people" && (0,A.jsx)(SeseCoursePeople,{data:e,course:seseCourseView.course,onClose:()=>setSeseCourseView(null),onAdd:()=>setSeseCourseView({mode:"add",course:seseCourseView.course})}),
+    seseCourseView && seseCourseView.mode==="add" && (0,A.jsx)(SeseCourseBatch,{data:e,course:seseCourseView.course,busy:v,locked:!l&&(d||!!f),onSave:(ids,fields)=>seseBatchTraining(seseCourseView.course,ids,fields),onClose:()=>setSeseCourseView(null),onPeople:()=>setSeseCourseView({mode:"people",course:seseCourseView.course})}),
     seseAbsenceId && (0,A.jsx)(SeseAbsenceEditor,{data:e,employeeId:seseAbsenceId,busy:v,onSave:seseSaveAbsence,onClose:()=>setSeseAbsenceId(null)}),
     (0, A.jsx)(Jw, {
       theme: "light",
@@ -4711,6 +4961,36 @@ html[data-theme=dark] .sese-people-avatar{background:rgba(143,184,255,.15);color
 .sese-people-info{flex:1 1 auto;min-width:0;display:grid;gap:2px;justify-items:start}
 .sese-people-info small{color:var(--muted-foreground);overflow-wrap:anywhere}
 .sese-people-footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:16px}
+.sese-train-actions{display:flex;align-items:center;justify-content:flex-end;gap:2px;flex-wrap:nowrap}
+.sese-train-actions .actions{gap:2px}
+.sese-course-dialog{width:min(640px,calc(100vw - 1rem))!important;max-height:calc(100dvh - 1rem);overflow-y:auto}
+.sese-course-dialog .sese-people-list li>.tag{flex:0 0 auto;white-space:nowrap}
+.sese-course-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 4px}
+.sese-course-tools .sese-people-search{flex:1 1 160px;width:auto;margin:0}
+.sese-sort-toggle{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:0 0 auto}
+.sese-sort-toggle button{padding:8px 12px;font-size:.8125rem;font-weight:500;background:transparent;color:var(--muted-foreground);border:0;cursor:pointer;white-space:nowrap}
+.sese-sort-toggle button+button{border-left:1px solid var(--border)}
+.sese-sort-toggle button.active{background:rgba(0,102,255,.1);color:#0066ff;font-weight:600}
+html[data-theme=dark] .sese-sort-toggle button.active{background:rgba(143,184,255,.15);color:#8fb8ff}
+.sese-batch-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:4px}
+.sese-batch-fields .field{margin-bottom:6px}
+.sese-batch-select{flex:0 1 170px;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:inherit;font-size:.875rem}
+.sese-batch-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.sese-batch-bar .btn,.sese-batch-confirm .btn{width:auto;min-height:36px;padding:7px 12px}
+.sese-batch-confirm{display:inline-flex;gap:6px;flex-wrap:wrap}
+.sese-batch-list{max-height:max(200px,calc(100dvh - 590px))}
+.sese-batch-list li.is-done .sese-people-avatar{background:rgba(22,163,74,.12);color:#16a34a}
+html[data-theme=dark] .sese-batch-list li.is-done .sese-people-avatar{background:rgba(74,222,128,.15);color:#4ade80}
+.sese-batch-add{width:auto!important;flex:0 0 auto;min-height:34px!important;padding:6px 12px!important;color:#0066ff;border-color:rgba(0,102,255,.35)!important}
+.sese-batch-add:hover:not(:disabled){background:rgba(0,102,255,.08)}
+.sese-batch-add:disabled{opacity:.5;cursor:not-allowed}
+html[data-theme=dark] .sese-batch-add{color:#8fb8ff;border-color:rgba(143,184,255,.4)!important}
+.sese-batch-last{color:#b45309!important}
+html[data-theme=dark] .sese-batch-last{color:#fbbf24!important}
+.sese-batch-error{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.08);color:#b91c1c;font-size:.8125rem;white-space:pre-line}
+html[data-theme=dark] .sese-batch-error{background:rgba(248,113,113,.12);color:#fca5a5}
+.sese-course-dialog .sese-people-footer .btn{width:auto}
+@media(max-width:560px){.sese-batch-fields{grid-template-columns:1fr 1fr}.sese-batch-fields .field:first-child{grid-column:1/-1}.sese-batch-select{flex:1 1 100%}.sese-sort-toggle{flex:1 1 100%}.sese-sort-toggle button{flex:1}.sese-course-dialog .sese-people-list li{flex-wrap:wrap}.sese-course-dialog .sese-people-list li .sese-people-info{flex-basis:calc(100% - 44px)}.sese-course-dialog .sese-people-list li>.tag,.sese-batch-add{margin-left:44px}}
 html[data-theme=dark] .sese-poly-top-button{color:#8fb8ff}
 .sese-poly-panel{border-top:4px solid #0066ff}
 .sese-poly-flash{animation:sesePolyFlash 1.4s ease-out}
