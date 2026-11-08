@@ -142,7 +142,7 @@
   .access-eyebrow { display: none; }
   #quap-access h1 { font-size: 23px; line-height: 1.35; letter-spacing: -.5px; }
   .access-intro-copy > p:last-child, .access-intro-footer { display: none; }
-  .access-neural-art { position: absolute; width: 270px; height: auto; top: -28px; right: -145px; opacity: .35; }
+  .access-neural-art { position: relative; width: 100%; max-width: 290px; height: auto; top: auto; right: auto; opacity: 1; margin: 10px auto -5px; }
   .access-card { padding: 30px 32px 23px; }
   .access-card-brand { display: none; }
   .access-description { margin-bottom: 24px; }

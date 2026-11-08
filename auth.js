@@ -15,7 +15,7 @@
    <aside class="access-intro" aria-label="qUAP SESE">
     <div class="access-brand"><div class="access-product-brand"><img src="logo-original.png" alt="Cérebro sendo abastecido, logo original do qUAP" width="96" height="96"><span>qUAP</span></div><span class="access-brand-separator" aria-hidden="true"></span><img class="access-sese-logo" src="logo-sese.png" alt="SESÉ" width="120" height="37"></div>
     <div class="access-intro-copy"><p class="access-eyebrow">CONEXÕES QUE DESENVOLVEM</p><h1>Conhecimento conectado.<br><span>Equipes em evolução.</span></h1><p>Uma visão integrada das pessoas, das competências e do desenvolvimento da sua equipe.</p></div>
-    <img class="access-neural-art" src="neural-network.svg" alt="Ilustração de sinapses neurais conectadas" width="480" height="280">
+    <img class="access-neural-art" src="neural-network.svg" alt="Empilhadeira guardando uma caixa no porta-paletes, desenhada com redes neurais dentro de um cérebro rabiscado" width="640" height="420">
     <div class="access-intro-footer"><span class="access-status-dot"></span> Gestão de competências</div>
    </aside>
    <div class="access-card">
