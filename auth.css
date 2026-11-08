@@ -5,8 +5,9 @@
   position: fixed;
   inset: 0;
   z-index: 2147483646;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   overflow: auto;
   padding: 48px 28px;
   background: radial-gradient(ellipse at 15% 20%, #e2eee9 0, transparent 48%), radial-gradient(ellipse at 90% 90%, #e0e9f1 0, transparent 45%), #f1f4f6;
@@ -17,6 +18,8 @@
 #quap-access *, #quap-access *::before, #quap-access *::after { box-sizing: border-box; }
 #quap-access[hidden], #quap-account[hidden] { display: none; }
 .access-layout {
+  margin: auto;
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   width: min(100%, 1016px);
@@ -142,7 +145,7 @@
   .access-eyebrow { display: none; }
   #quap-access h1 { font-size: 23px; line-height: 1.35; letter-spacing: -.5px; }
   .access-intro-copy > p:last-child, .access-intro-footer { display: none; }
-  .access-neural-art { position: absolute; width: 270px; height: auto; top: -28px; right: -145px; opacity: .35; }
+  .access-neural-art { position: relative; width: 100%; max-width: 290px; height: auto; top: auto; right: auto; opacity: 1; margin: 10px auto -5px; }
   .access-card { padding: 30px 32px 23px; }
   .access-card-brand { display: none; }
   .access-description { margin-bottom: 24px; }
