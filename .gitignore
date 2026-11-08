@@ -1,0 +1,5 @@
+node_modules/
+*.private.json
+.firebase/
+*-debug.log
+public/
