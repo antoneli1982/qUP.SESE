@@ -1,1 +1,150 @@
-#quap-access{position:fixed;inset:0;z-index:2147483646;background:#eef3f8;overflow:auto;display:grid;place-items:center;padding:24px;color:#172b4d;font:16px system-ui}#quap-access[hidden],#quap-account[hidden]{display:none}.access-card{background:white;border-radius:18px;padding:32px;width:min(100%,620px);box-shadow:0 12px 48px #172b4d22}.access-card h1{font-size:24px;margin-bottom:20px}.access-card h2{font-size:20px}.access-card label{display:block;margin:18px 0}.access-card input,.access-card select{display:block;width:100%;padding:12px;border:1px solid #9cacc0;border-radius:8px;margin-top:6px}.access-card button,#quap-account button{background:#174b83;color:white;border:0;padding:10px 16px;border-radius:8px;margin:8px 8px 8px 0;cursor:pointer}.access-card button:disabled{opacity:.5}.access-user{border-top:1px solid #d4dce8;padding:12px 0}#access-message{color:#a32424;margin-top:14px}#quap-account{position:sticky;bottom:0;background:#fff;border-top:1px solid #ccd6e0;padding:8px 16px;z-index:100;font:14px system-ui}
+#quap-access {
+  --access-ink: #142c42;
+  --access-muted: #6a7b8b;
+  --access-teal: #11796f;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 48px 28px;
+  background: radial-gradient(ellipse at 15% 20%, #e2eee9 0, transparent 48%), radial-gradient(ellipse at 90% 90%, #e0e9f1 0, transparent 45%), #f1f4f6;
+  color: var(--access-ink);
+  font: 14px/1.5 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+#quap-access *, #quap-access *::before, #quap-access *::after { box-sizing: border-box; }
+#quap-access[hidden], #quap-account[hidden] { display: none; }
+.access-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: min(100%, 1016px);
+  min-height: 630px;
+  background: #fff;
+  border: 1px solid #fff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px -28px #17334940, 0 4px 14px #17334906;
+}
+.access-intro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 40px 42px 32px;
+  color: #fff;
+  background: radial-gradient(ellipse at 90% 65%, #15515766, transparent 65%), linear-gradient(145deg, #132e43, #0c2637 80%);
+}
+.access-intro::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .13;
+  background-image: radial-gradient(#a0c6c9 .6px, transparent .6px);
+  background-size: 20px 20px;
+  mask-image: linear-gradient(transparent, #000);
+}
+.access-brand { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.access-brand > span { display: flex; align-items: center; gap: 12px; font-size: 31px; font-weight: 650; letter-spacing: -1.4px; }
+.access-brand-tag { border: 1px solid #ffffff30; padding: 3px 7px; border-radius: 5px; font-size: 10px; font-weight: 500; letter-spacing: 2px; color: #c7dce3; }
+.access-intro-copy { position: relative; z-index: 1; margin-top: 47px; }
+.access-eyebrow { margin: 0 0 16px; font-size: 10px; font-weight: 600; letter-spacing: 2.1px; color: #83d7cb; }
+#quap-access h1 { margin: 0; font-size: clamp(26px, 2.8vw, 34px); line-height: 1.28; font-weight: 600; letter-spacing: -1.1px; color: #fff; }
+#quap-access h1 span { color: #90dfd1; }
+.access-intro-copy > p:last-child { max-width: 330px; margin: 20px 0 0; color: #aec2ce; font-size: 13px; line-height: 1.8; }
+.access-neural-art { display: block; position: relative; z-index: 1; align-self: center; width: calc(100% + 48px); height: auto; max-width: none; margin: 3px -24px -6px; }
+.access-intro-footer { display: flex; align-items: center; gap: 9px; position: relative; z-index: 1; margin-top: auto; padding-top: 12px; color: #acc6ce; font-size: 11px; letter-spacing: .3px; }
+.access-status-dot { width: 5px; height: 5px; border-radius: 50%; background: #81d9be; box-shadow: 0 0 0 4px #81d9be10; }
+.access-card { display: flex; flex-direction: column; padding: 40px 48px 25px; min-width: 0; background: #fff; }
+.access-card-brand { display: flex; align-items: center; gap: 5px; padding-bottom: 37px; }
+.access-card-brand > img { background: #16364b; border-radius: 10px; padding: 3px; width: 33px; height: 33px; }
+.access-card-brand > span:not(.access-restricted) { font-size: 17px; font-weight: 650; letter-spacing: -.6px; }
+.access-card-brand > span > span { font-size: 9px; font-weight: 600; letter-spacing: 1px; margin-left: 4px; color: #738797; }
+.access-restricted { display: flex; align-items: center; gap: 5px; margin-left: auto; padding: 4px 8px; background: #f1f5f5; border: 1px solid #e5ecec; border-radius: 20px; font-size: 9px; color: #687c85; white-space: nowrap; }
+.access-restricted svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 1.6; }
+.access-content { flex: 1; }
+.access-step { margin: 0 0 9px; color: var(--access-teal); font-size: 9px; letter-spacing: 1.8px; font-weight: 700; }
+#quap-access h2 { margin: 0 0 9px; color: var(--access-ink); font: 600 28px/1.25 'Segoe UI', system-ui, sans-serif; letter-spacing: -.8px; }
+.access-description { margin: 0 0 28px; color: var(--access-muted); font-size: 12px; line-height: 1.7; max-width: 300px; }
+#quap-access label { display: block; margin: 0 0 19px; color: #344a5d; font-size: 11px; font-weight: 600; letter-spacing: .15px; }
+#quap-access input, #quap-access select {
+  display: block;
+  width: 100%;
+  min-height: 47px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3e9;
+  border-radius: 9px;
+  background: #fafbfc;
+  color: var(--access-ink);
+  font: 400 13px/1.4 'Segoe UI', system-ui, sans-serif;
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+#quap-access input::placeholder { color: #98a6b4; }
+#quap-access input:hover, #quap-access select:hover { border-color: #b4c5cf; }
+#quap-access input:focus, #quap-access select:focus { outline: 0; border-color: #258f83; background: #fff; box-shadow: 0 0 0 3px #258f8314; }
+.access-input-wrap { position: relative; }
+.access-input-wrap > svg { position: absolute; left: 14px; top: 15px; width: 17px; height: 17px; stroke: #93a3b1; stroke-width: 1.5; pointer-events: none; }
+#quap-access .access-input-wrap input { padding-left: 42px; }
+#quap-access button { cursor: pointer; font: 600 12px/1.4 'Segoe UI', system-ui, sans-serif; transition: background .18s, box-shadow .18s, transform .18s; }
+#quap-access form > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 47px;
+  margin-top: 8px;
+  padding: 13px 20px;
+  border: 1px solid #163c50;
+  border-radius: 9px;
+  background: #163c50;
+  color: #fff;
+  box-shadow: 0 4px 9px #163c5014;
+}
+#quap-access form > button span { font-size: 17px; font-weight: 400; }
+#quap-access form > button:hover { background: #20576b; box-shadow: 0 5px 14px #163c5026; }
+#quap-access button:active { transform: translateY(1px); }
+#quap-access button:focus-visible { outline: 3px solid #32a79355; outline-offset: 3px; }
+#quap-access button:disabled { opacity: .55; cursor: wait; }
+.access-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0 13px; color: #8a99a7; font-size: 10px; }
+.access-divider::before, .access-divider::after { content: ''; height: 1px; flex: 1; background: #e8edef; }
+#quap-access .access-secondary { display: block; width: 100%; padding: 11px 14px; border: 1px solid #dce5ea; border-radius: 9px; background: #fff; color: #38566a; }
+#quap-access .access-secondary:hover { background: #f5f8fa; border-color: #bdced6; }
+.access-card-footer { margin-top: 34px; padding-top: 17px; border-top: 1px solid #edf1f3; color: #8c9ba7; text-align: center; font-size: 9px; }
+.access-field-help { margin: -9px 0 18px; color: var(--access-muted); font-size: 10px; }
+#access-message { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; color: #a43333; background: #fff3f2; font-size: 12px; }
+#access-message:empty { display: none; }
+#quap-access[data-mode='account'] .access-content > p:not(#access-message) { margin: 14px 0 24px; color: var(--access-muted); font-size: 13px; line-height: 1.7; }
+#quap-access[data-mode='account'] form + .access-secondary { margin-top: 14px; }
+.access-user { padding: 16px 0; border-top: 1px solid #e4eaef; }
+.access-user p { margin: 0 0 9px; font-size: 12px; overflow-wrap: anywhere; }
+.access-user .access-secondary { margin-top: 9px; }
+#quap-account { position: sticky; bottom: 0; padding: 8px 16px; background: #fff; border-top: 1px solid #dce5ea; z-index: 100; font: 13px/1.5 'Segoe UI', system-ui, sans-serif; color: #344a5d; }
+#quap-account button { margin: 4px 0 4px 12px; padding: 8px 12px; background: #163c50; color: #fff; border: 0; border-radius: 7px; font: inherit; cursor: pointer; }
+@media (max-width: 800px) {
+  #quap-access { padding: 28px 20px; }
+  .access-layout { width: min(100%, 470px); min-height: 0; grid-template-columns: 1fr; border-radius: 20px; }
+  .access-intro { padding: 24px 30px; }
+  .access-brand > span { font-size: 28px; }
+  .access-brand > img { width: 44px; height: 44px; }
+  .access-intro-copy { margin-top: 20px; }
+  .access-eyebrow { display: none; }
+  #quap-access h1 { font-size: 23px; line-height: 1.35; letter-spacing: -.5px; }
+  .access-intro-copy > p:last-child, .access-intro-footer { display: none; }
+  .access-neural-art { position: absolute; width: 270px; height: auto; top: -28px; right: -145px; opacity: .35; }
+  .access-card { padding: 30px 32px 23px; }
+  .access-card-brand { display: none; }
+  .access-description { margin-bottom: 24px; }
+  .access-card-footer { margin-top: 28px; }
+}
+@media (max-width: 400px) {
+  #quap-access { padding: 16px 12px; }
+  .access-intro { padding: 20px 24px; }
+  .access-card { padding: 26px 24px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #quap-access *, #quap-access *::before, #quap-access *::after { transition: none; }
+}

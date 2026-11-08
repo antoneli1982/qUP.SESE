@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280" fill="none">
+ <defs>
+  <radialGradient id="halo"><stop stop-color="#39C6C4" stop-opacity=".14"/><stop offset="1" stop-color="#39C6C4" stop-opacity="0"/></radialGradient>
+  <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4"/></filter>
+ </defs>
+ <ellipse cx="239" cy="140" rx="195" ry="132" fill="url(#halo)"/>
+ <g stroke="#56CFC5" stroke-width="1.1" opacity=".28">
+  <path d="M65 103 131 52 199 81 258 36 331 66 411 47M41 201 108 166 165 222 236 190 310 228 385 184 441 203M65 103 108 166 199 81 236 190 331 66 385 184M131 52 108 166M199 81 310 228M258 36 285 130 411 47M285 130 385 184M310 228 331 66M41 201 65 103M385 184 424 115"/>
+ </g>
+ <g stroke="#73E1D3" stroke-width="1.6" stroke-linecap="round">
+  <path d="M108 166C153 164 154 125 199 125M108 166C89 151 91 126 65 103M108 166C109 188 139 193 165 222M108 166C130 132 107 94 131 52M199 125C219 94 220 94 258 77M199 125C235 124 246 146 285 130M199 125C206 153 208 172 236 190M258 77C288 79 303 65 331 66M285 130C309 140 321 172 350 161M285 130C314 109 354 101 376 90M350 161C358 173 368 183 385 184M350 161C379 154 408 139 424 115M236 190C263 181 286 203 310 228M376 90C393 73 405 66 411 47"/>
+ </g>
+ <g fill="#70E3D2">
+  <circle cx="65" cy="103" r="4"/><circle cx="131" cy="52" r="3.5"/><circle cx="165" cy="222" r="3.5"/><circle cx="236" cy="190" r="5"/><circle cx="310" cy="228" r="3.5"/><circle cx="331" cy="66" r="4.5"/><circle cx="376" cy="90" r="4"/><circle cx="411" cy="47" r="3"/><circle cx="385" cy="184" r="4"/><circle cx="424" cy="115" r="3"/>
+ </g>
+ <g fill="#F6B65B"><circle cx="258" cy="77" r="5"/><circle cx="350" cy="161" r="6"/><circle cx="41" cy="201" r="2.5"/><circle cx="441" cy="203" r="2.5"/></g>
+ <g fill="#6DE2D2" opacity=".28" filter="url(#glow)"><circle cx="108" cy="166" r="15"/><circle cx="199" cy="125" r="18"/><circle cx="285" cy="130" r="15"/></g>
+ <g fill="#103F50" stroke="#75E9D7" stroke-width="1.6"><circle cx="108" cy="166" r="9"/><circle cx="199" cy="125" r="12"/><circle cx="285" cy="130" r="9"/></g>
+ <g fill="#A0F5E1"><circle cx="108" cy="166" r="3"/><circle cx="199" cy="125" r="4"/><circle cx="285" cy="130" r="3"/></g>
+ <g stroke="#6DE2D2" opacity=".18"><circle cx="199" cy="125" r="23"/><circle cx="285" cy="130" r="19"/><circle cx="108" cy="166" r="18"/></g>
+</svg>

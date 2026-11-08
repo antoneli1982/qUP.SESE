@@ -9,14 +9,30 @@
  document.body.append(panel);
  const bar=document.createElement('aside');bar.id='quap-account';document.body.append(bar);
  const labels={senior:'Sênior',analyst:'Analista',viewer:'Visualizador'};
- function show(html){root.inert=true;root.style.display='none';bar.hidden=true;panel.hidden=false;panel.innerHTML='<div class="access-card"><h1>qUAP · Acesso seguro</h1>'+html+'<p id="access-message" role="status" aria-live="polite"></p></div>';}
+ function show(html,mode='account'){
+  root.inert=true;root.style.display='none';bar.hidden=true;panel.hidden=false;panel.dataset.mode=mode;
+  panel.innerHTML=`<div class="access-layout">
+   <aside class="access-intro" aria-label="qUAP SESE">
+    <div class="access-brand"><img src="neural-mark.svg" alt="" width="52" height="52"><span>qUAP<span class="access-brand-tag">SESE</span></span></div>
+    <div class="access-intro-copy"><p class="access-eyebrow">CONEXÕES QUE DESENVOLVEM</p><h1>Conhecimento conectado.<br><span>Equipes em evolução.</span></h1><p>Uma visão integrada das pessoas, das competências e do desenvolvimento da sua equipe.</p></div>
+    <img class="access-neural-art" src="neural-network.svg" alt="Ilustração de sinapses neurais conectadas" width="480" height="280">
+    <div class="access-intro-footer"><span class="access-status-dot"></span> Gestão de competências</div>
+   </aside>
+   <div class="access-card">
+    <div class="access-card-brand"><img src="neural-mark.svg" alt="" width="36" height="36"><span>qUAP <span>SESE</span></span><span class="access-restricted"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>Área restrita</span></div>
+    <div class="access-content">`+html+`<p id="access-message" role="status" aria-live="polite"></p></div>
+    <div class="access-card-footer">Pessoas e competências, na mesma conexão.</div>
+   </div>
+  </div>`;
+ }
+
  function message(text){const el=document.getElementById('access-message');if(el)el.textContent=text;}
- function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.onclick=action;parent.append(b);return b;}
+ function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.className='access-secondary';b.onclick=action;parent.append(b);return b;}
  function exit(){auth.signOut().finally(()=>location.reload());}
  function errors(error){console.error('Falha no acesso:',error.code);message(error.code==='auth/too-many-requests'?'Muitas tentativas. Aguarde e tente novamente.':'Não foi possível concluir. Confira os dados ou tente novamente.');}
  function login(register=false){
-  show('<h2>'+ (register?'Solicitar acesso':'Entrar')+'</h2><form id="access-form"><label>Login<input name="login" required autocomplete="username" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha<input name="password" type="password" required autocomplete="'+(register?'new-password':'current-password')+'"></label><button>'+(register?'Enviar solicitação':'Entrar')+'</button></form>');
-  button(register?'Voltar ao login':'Solicitar novo acesso',()=>login(!register),panel.querySelector('.access-card'));
+  show('<p class="access-step">'+(register?'JUNTE-SE À EQUIPE':'BEM-VINDO DE VOLTA')+'</p><h2>'+(register?'Solicitar acesso':'Entrar')+'</h2><p class="access-description">'+(register?'Crie seu acesso. Um sênior avaliará sua solicitação.':'Entre com suas credenciais para acessar a plataforma.')+'</p><form id="access-form"><label>Login<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></div></label><label>Senha<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input name="password" type="password" required autocomplete="'+(register?'new-password':'current-password')+'" placeholder="'+(register?'Crie uma senha':'Digite sua senha')+'"></div></label>'+(register?'<p class="access-field-help">Use pelo menos 12 caracteres, letras e números.</p>':'')+'<button type="submit">'+(register?'Enviar solicitação':'Entrar')+'<span aria-hidden="true">↗</span></button></form><div class="access-divider"><span>'+(register?'Já faz parte da equipe?':'Ainda não tem uma conta?')+'</span></div>',register?'register':'login');
+  button(register?'Voltar ao login':'Solicitar novo acesso',()=>login(!register),panel.querySelector('.access-content'));
   panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,b=form.querySelector('button');b.disabled=true;
    try{const name=form.elements.login.value.trim(),password=form.elements.password.value,email=name.toLowerCase()+'@users.quapsese.invalid';
     if(register){if(password.length<12||!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password))throw Error('weak');
