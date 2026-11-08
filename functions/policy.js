@@ -1,0 +1,2 @@
+exports.validPassword=p=>typeof p==='string' && p.length>=12 && p.length<=128 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p);
+exports.canManage=(actor,self,uid,role,status)=>!!actor && actor.role==='senior' && actor.status==='approved' && actor.mustChangePassword===false && typeof uid==='string' && /^[A-Za-z0-9_-]{1,128}$/.test(uid) && uid!==self && ['analyst','viewer'].includes(role) && ['approved','blocked'].includes(status);

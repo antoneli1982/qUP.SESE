@@ -1,6 +1,33 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    ".read": false,
+    ".write": false,
+    "quapAccess": {
+      "users": {
+        ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior'",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.child('status').val() === 'pending' && newData.child('role').val() === 'viewer' && newData.child('mustChangePassword').val() === false",
+          ".validate": "newData.hasChildren(['login','status','role','mustChangePassword'])",
+          "login": {
+            ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 64"
+          },
+          "status": {},
+          "role": {},
+          "mustChangePassword": {},
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "ferramentas": {
+      "quap": {
+        "matriz_competencias_v1": {
+          ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false",
+          ".write": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && (root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior' || root.child('quapAccess/users').child(auth.uid).child('role').val() === 'analyst')"
+        }
+      }
+    }
   }
 }
