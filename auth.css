@@ -47,7 +47,12 @@
   mask-image: linear-gradient(transparent, #000);
 }
 .access-brand { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
-.access-brand > img { width: 96px; height: 96px; object-fit: contain; flex: none; }
+.access-product-brand { display: flex; align-items: center; gap: 10px; }
+.access-product-brand > img { width: 96px; height: 96px; object-fit: contain; flex: none; }
+.access-product-brand > span { font-size: 31px; font-weight: 650; letter-spacing: -1.4px; }
+.access-brand-separator { flex: none; width: 1px; height: 35px; margin: 0 5px; background: #ffffff26; }
+.access-brand > .access-sese-logo { flex: none; width: 120px; height: auto; background: #fff; border-radius: 7px; padding: 8px 9px; }
+.access-card-brand > img.access-sese-logo { width: 76px; height: auto; background: none; padding: 0; border-radius: 0; margin-left: 9px; }
 .access-brand > span { display: flex; align-items: center; gap: 12px; font-size: 31px; font-weight: 650; letter-spacing: -1.4px; }
 .access-brand-tag { border: 1px solid #ffffff30; padding: 3px 7px; border-radius: 5px; font-size: 10px; font-weight: 500; letter-spacing: 2px; color: #c7dce3; }
 .access-intro-copy { position: relative; z-index: 1; margin-top: 27px; }
@@ -130,7 +135,9 @@
   .access-layout { width: min(100%, 470px); min-height: 0; grid-template-columns: 1fr; border-radius: 20px; }
   .access-intro { padding: 24px 30px; }
   .access-brand > span { font-size: 28px; }
-  .access-brand > img { width: 64px; height: 64px; }
+  .access-product-brand > img { width: 60px; height: 60px; }
+  .access-product-brand > span { font-size: 25px; }
+  .access-brand > .access-sese-logo { width: 96px; padding: 7px; }
   .access-intro-copy { margin-top: 20px; }
   .access-eyebrow { display: none; }
   #quap-access h1 { font-size: 23px; line-height: 1.35; letter-spacing: -.5px; }
@@ -143,6 +150,11 @@
 }
 @media (max-width: 400px) {
   #quap-access { padding: 16px 12px; }
+  .access-product-brand { gap: 6px; }
+  .access-product-brand > img { width: 52px; height: 52px; }
+  .access-product-brand > span { font-size: 24px; }
+  .access-brand > .access-sese-logo { width: 88px; }
+  .access-brand-separator { margin: 0 2px; }
   .access-intro { padding: 20px 24px; }
   .access-card { padding: 26px 24px 20px; }
 }
