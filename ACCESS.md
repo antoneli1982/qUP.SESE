@@ -17,7 +17,7 @@ Nesta implementação gratuita a aplicação primeiro aguarda a confirmação de
 
 ## Publicação
 
-Os arquivos fonte são `index.html`, `auth.js` e `auth.css`. Copie os três para `public/` antes de publicar. A pasta `public/` é gerada e ignorada pelo Git.
+Os arquivos fonte são `index.html`, `auth.js`, `auth.css`, `neural-mark.svg` e `neural-network.svg`. Copie os cinco para `public/` antes de publicar. A pasta `public/` é gerada e ignorada pelo Git.
 
 Com a conta administrativa conectada:
 
