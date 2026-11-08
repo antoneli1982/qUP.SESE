@@ -13,13 +13,13 @@
   root.inert=true;root.style.display='none';bar.hidden=true;panel.hidden=false;panel.dataset.mode=mode;
   panel.innerHTML=`<div class="access-layout">
    <aside class="access-intro" aria-label="qUAP SESE">
-    <div class="access-brand"><img src="neural-mark.svg" alt="" width="52" height="52"><span>qUAP<span class="access-brand-tag">SESE</span></span></div>
+    <div class="access-brand"><img src="logo-original.png" alt="Cérebro sendo abastecido, logo original do qUAP" width="96" height="96"><span>qUAP<span class="access-brand-tag">SESE</span></span></div>
     <div class="access-intro-copy"><p class="access-eyebrow">CONEXÕES QUE DESENVOLVEM</p><h1>Conhecimento conectado.<br><span>Equipes em evolução.</span></h1><p>Uma visão integrada das pessoas, das competências e do desenvolvimento da sua equipe.</p></div>
     <img class="access-neural-art" src="neural-network.svg" alt="Ilustração de sinapses neurais conectadas" width="480" height="280">
     <div class="access-intro-footer"><span class="access-status-dot"></span> Gestão de competências</div>
    </aside>
    <div class="access-card">
-    <div class="access-card-brand"><img src="neural-mark.svg" alt="" width="36" height="36"><span>qUAP <span>SESE</span></span><span class="access-restricted"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>Área restrita</span></div>
+    <div class="access-card-brand"><img src="logo-original.png" alt="Cérebro sendo abastecido, logo original do qUAP" width="36" height="36"><span>qUAP <span>SESE</span></span><span class="access-restricted"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>Área restrita</span></div>
     <div class="access-content">`+html+`<p id="access-message" role="status" aria-live="polite"></p></div>
     <div class="access-card-footer">Pessoas e competências, na mesma conexão.</div>
    </div>
