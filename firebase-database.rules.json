@@ -7,14 +7,21 @@
         ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior'",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
-          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.child('status').val() === 'pending' && newData.child('role').val() === 'viewer' && newData.child('mustChangePassword').val() === false",
+          ".write": "(auth != null && auth.uid === $uid && !data.exists() && newData.child('status').val() === 'pending' && newData.child('role').val() === 'viewer' && newData.child('mustChangePassword').val() === false && auth.token.email === newData.child('login').val().toLowerCase() + '@users.quapsese.invalid') || (auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior' && auth.uid !== $uid && data.exists() && data.child('role').val() !== 'senior' && newData.child('login').val() === data.child('login').val() && newData.child('mustChangePassword').val() === data.child('mustChangePassword').val() && (newData.child('role').val() === 'viewer' || newData.child('role').val() === 'analyst') && (newData.child('status').val() === 'approved' || newData.child('status').val() === 'blocked'))",
           ".validate": "newData.hasChildren(['login','status','role','mustChangePassword'])",
           "login": {
-            ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 64"
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._-]{3,64}$/)"
           },
-          "status": {},
-          "role": {},
-          "mustChangePassword": {},
+          "role": {
+            ".validate": "newData.val() === 'senior' || newData.val() === 'analyst' || newData.val() === 'viewer'"
+          },
+          "status": {
+            ".validate": "newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'blocked'"
+          },
+          "mustChangePassword": {
+            ".write": "auth != null && auth.uid === $uid && data.val() === true && newData.val() === false",
+            ".validate": "newData.isBoolean()"
+          },
           "$other": {
             ".validate": false
           }

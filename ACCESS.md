@@ -1,28 +1,34 @@
-# Login e controle de acesso
+# Controle de acesso — plano gratuito
 
-Implementação preparada para o Firebase `controlmaterials`, preservando a configuração e os dados do index.html recebido.
+A aplicação usa Firebase Authentication (Email/Senha) e Realtime Database no projeto `quapsese`. Não usa Cloud Functions nem exige plano Blaze.
 
-- Sênior: aprova, bloqueia e define analista ou visualizador.
-- Analista: leitura e alteração dos registros operacionais.
-- Visualizador: leitura; gravações são negadas nas regras do banco.
-- Novos cadastros ficam pendentes e não leem os dados da ferramenta.
-- A troca da senha inicial é confirmada no servidor antes de liberar o banco.
-- Sessão encerrada ao fechar o navegador; botão Sair disponível.
+| Perfil | Permissões |
+|---|---|
+| Sênior | Todas as consultas e alterações operacionais; aprovar, bloquear e definir analistas ou visualizadores |
+| Analista | Consultar, inserir, alterar e excluir dados operacionais |
+| Visualizador | Consultar dados; gravações negadas no banco |
+| Pendente/bloqueado | Sem acesso aos registros operacionais |
 
-## Ativação
+Usuários iniciais: `Ivan.Antoneli` e `Grabriela.Baptista`, com senha temporária solicitada `123456`. O espaço após o ponto foi removido. No primeiro acesso a tela exige uma senha de pelo menos 12 caracteres, letras e números. Nenhuma senha é guardada no banco de perfis ou no código publicado.
 
-1. Reconectar a conta administrativa do Firebase (`firebase login --reauth`).
-2. Instalar dependências em `functions` com `npm install` e executar `npm test`.
-3. Habilitar Email/Senha no Firebase Authentication do projeto correto.
-4. Executar `node bootstrap.cjs` em functions, com `FIREBASE_TOOLS_PATH` apontando para a pasta `firebase-tools/lib`. O script usa a sessão administrativa local e não grava tokens ou senhas no banco.
-5. **Antes de publicar as regras**, baixar as regras atuais do banco e combinar os caminhos `quapAccess` e `ferramentas/quap/matriz_competencias_v1` com as regras dos demais sistemas. Remover permissões públicas dos ancestrais desses caminhos: permissões concedidas em um ancestral não podem ser negadas no filho. O arquivo fornecido é uma base restritiva; não substituir as regras de um banco compartilhado sem revisar os demais caminhos.
-6. Publicar as funções `changePassword` e `manageAccess` (Cloud Functions exige projeto com faturamento habilitado), depois as regras revisadas e os arquivos `index.html`, `auth.js` e `auth.css` juntos.
-7. Verificar em navegador: os dois primeiros acessos e troca obrigatória; cadastro pendente sem leitura; aprovação como visualizador; tentativa direta de gravação negada; aprovação como analista e gravação; bloqueio com sessão aberta.
+## Limite da troca inicial
 
-Usuários iniciais: `Ivan.Antoneli` e `Grabriela.Baptista`. Senha temporária solicitada: `123456`. O bootstrap não altera contas já existentes e falha se encontrar uma conta sem perfil, para evitar elevar privilégios de uma conta indevida. A grafia Grabriela foi preservada conforme o pedido.
+Nesta implementação gratuita a aplicação primeiro aguarda a confirmação de `updatePassword` pelo Firebase Authentication e depois libera o perfil. As regras impedem o usuário de alterar seu perfil, aprovação ou privilégio, mas permitem que ele limpe seu próprio indicador de troca inicial. Portanto, esse indicador **não comprova no servidor que houve troca de senha**: um cliente modificado pode contornar a tela. A proteção de perfis e aprovação é independente e aplicada no servidor. Faça a troca das duas senhas temporárias imediatamente. A validação estrita do processo de troca exige um componente confiável de servidor.
 
-Os identificadores internos terminam em `@users.quapsese.invalid`; não são endereços de contato. Login aceita letras, números, ponto, hífen e sublinhado, sem distinguir maiúsculas. Não há recuperação por e-mail nesta versão.
+## Publicação
 
-## Validação realizada
+Os arquivos fonte são `index.html`, `auth.js` e `auth.css`. Copie os três para `public/` antes de publicar. A pasta `public/` é gerada e ignorada pelo Git.
 
-Testes de política cobrem senha inicial/fraca, aprovação e restrições por perfil, bloqueio, troca obrigatória, autopromoção e promoção para sênior. Verificação sintática dos scripts. A validação integrada e a ativação remota dependem da reconexão administrativa; não foram realizadas com a sessão expirada.
+Com a conta administrativa conectada:
+
+```
+firebase deploy --only auth,database,hosting --project quapsese
+```
+
+As regras são exclusivas do projeto `quapsese`. Não publicar estas regras no banco compartilhado `controlmaterials`. Dados operacionais da versão anterior foram copiados para o mesmo caminho relativo no banco `quapsese`, mantendo a cópia original. A versão antiga que usa `controlmaterials` precisa ser substituída nos endereços de distribuição; sua cópia de dados e suas regras públicas não foram alteradas por afetarem um projeto compartilhado.
+
+Identificadores internos terminam em `@users.quapsese.invalid`; são chaves de login, sem caixa postal. Não há recuperação por e-mail nesta versão. Seniores existentes não podem ser rebaixados, bloqueados ou criados pela tela de gestão; isso requer administração do projeto.
+
+## Verificação
+
+Regras compiladas e publicadas. Testes reais com usuários temporários cobrem acesso anônimo, primeiro acesso dos seniores, solicitação pendente, negação de autoaprovação/autopromoção, leitura de visualizador, negação de sua gravação direta, gravação por analista e sênior, aprovação e bloqueio e revogação com sessão aberta. Os usuários temporários foram removidos. Login e tela de troca inicial também foram verificados no navegador, sem erros JavaScript.

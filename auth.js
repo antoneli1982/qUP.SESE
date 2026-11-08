@@ -1,7 +1,7 @@
 /* Authentication and permissions. Passwords are handled exclusively by Firebase Auth. */
 (()=>{
- const app=firebase.apps.find(a=>a.name==='quap-controlmaterials');
- const auth=app.auth(),db=app.database(),functions=app.functions();
+ const app=firebase.apps.find(a=>a.name==='quap-quapsese');
+ const auth=app.auth(),db=app.database(app.options.databaseURL);
  let profile=null,unwatch=()=>{},readyResolve=window.__quapAccessResolve;
 
  const root=document.getElementById('root');
@@ -29,7 +29,7 @@
  function changePassword(){
   show('<h2>Troque sua senha inicial</h2><p>Defina uma senha com pelo menos 12 caracteres, letras e números para liberar o acesso.</p><form><label>Nova senha<input name="password" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label><label>Confirme a senha<input name="confirm" type="password" required autocomplete="new-password"></label><button>Salvar nova senha</button></form>');
   button('Sair',exit,panel.querySelector('.access-card'));
-  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{await functions.httpsCallable('changePassword')({password:f.password.value});await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
+  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<12||!/[a-zA-Z]/.test(f.password.value)||!/[0-9]/.test(f.password.value)) {message('Use pelo menos 12 caracteres, letras e números.');return;} await auth.currentUser.updatePassword(f.password.value);await db.ref('quapAccess/users/'+auth.currentUser.uid+'/mustChangePassword').set(false);await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
  }
  async function manage(){
   show('<h2>Integrantes e solicitações</h2><div id="access-users">Carregando…</div>');
@@ -37,7 +37,7 @@
   try{const snapshot=await db.ref('quapAccess/users').once('value'),list=document.getElementById('access-users');list.textContent='';
    snapshot.forEach(s=>{const u=s.val(),row=document.createElement('div');row.className='access-user';const title=document.createElement('p');title.textContent=u.login+' · '+(labels[u.role]||u.role)+' · '+({pending:'Aguardando aprovação',approved:'Aprovado',blocked:'Bloqueado'}[u.status]||u.status);row.append(title);
     if(u.role!=='senior'){const select=document.createElement('select');for(const role of ['viewer','analyst']){const o=document.createElement('option');o.value=role;o.textContent=labels[role];select.append(o);}select.value=u.role;row.append(select);
-     const update=status=>async e=>{e.target.disabled=true;try{await functions.httpsCallable('manageAccess')({uid:s.key,role:select.value,status});await manage();}catch(err){errors(err);e.target.disabled=false;}};
+     const update=status=>async e=>{e.target.disabled=true;try{await db.ref('quapAccess/users/'+s.key).update({role:select.value,status});await manage();}catch(err){errors(err);e.target.disabled=false;}};
      button(u.status==='pending'?'Aprovar':'Salvar perfil',update('approved'),row);button('Bloquear',update('blocked'),row);
     }list.append(row);
    });
@@ -46,12 +46,12 @@
  function activate(p){
   panel.hidden=true;root.style.display='';root.inert=false;bar.hidden=false;bar.textContent=p.login+' · '+labels[p.role]+' ';
   if(p.role==='senior')button('Gerenciar integrantes',manage,bar);button('Sair',exit,bar);
-  document.body.dataset.quapRole=p.role;readyResolve();
+  document.body.dataset.quapRole=p.role;refreshWriteButtons();readyResolve();
  }
  function accept(p){
   const wasActive=profile?.status==='approved'&&!profile?.mustChangePassword;
   profile=p;
-  if(wasActive&&(!p||p.status!=='approved'||p.mustChangePassword))location.reload();
+  if(wasActive&&(!p||p.status!=='approved'||p.mustChangePassword)){root.inert=true;root.style.display='none';location.reload();return;}
   if(!p){show('<p>Seu cadastro não foi concluído. Saia e solicite apoio a um sênior.</p>');button('Sair',exit,panel.querySelector('.access-card'));}
   else if(p.mustChangePassword)changePassword();
   else if(p.status!=='approved'){show('<p>'+ (p.status==='blocked'?'Seu acesso está bloqueado. Consulte um sênior.':'Sua solicitação aguarda aprovação de um sênior.')+'</p>');button('Sair',exit,panel.querySelector('.access-card'));}
@@ -60,8 +60,11 @@
  window.__quapCanWrite=()=>profile?.status==='approved'&&!profile.mustChangePassword&&['senior','analyst'].includes(profile.role);
  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(()=>auth.onAuthStateChanged(user=>{
   unwatch();if(!user){profile=null;login();return;}
-  const ref=db.ref('quapAccess/users/'+user.uid),handler=s=>accept(s.val());ref.on('value',handler,errors);unwatch=()=>ref.off('value',handler);
+  const ref=db.ref('quapAccess/users/'+user.uid),handler=s=>accept(s.val());ref.on('value',handler,error=>{root.inert=true;root.style.display='none';show('<p>Não foi possível confirmar sua permissão. Entre novamente.</p>');button('Sair',exit,panel.querySelector('.access-card'));errors(error);});unwatch=()=>ref.off('value',handler);
  })).catch(errors);
- // Read-only UI guidance; the database rules independently enforce this restriction.
+ const mutationLabel=/salvar|excluir|remover|adicionar|novo|nova|importar|editar|cadastrar|aplicar|confirmar|registrar/i;
+ function refreshWriteButtons(){for(const b of root.querySelectorAll('button')){const readonly=profile?.role==='viewer'&&mutationLabel.test(b.textContent+' '+b.getAttribute('aria-label'));if(readonly&&!b.disabled){b.dataset.quapReadOnly='true';b.disabled=true;b.title='Seu perfil permite somente leitura.';}else if(!readonly&&b.dataset.quapReadOnly){b.disabled=false;delete b.dataset.quapReadOnly;b.removeAttribute('title');}}}
+ new MutationObserver(refreshWriteButtons).observe(root,{childList:true,subtree:true,characterData:true});
+ // UI guidance; database rules independently enforce this restriction.
  document.addEventListener('click',e=>{if(profile?.role!=='viewer'||!root.contains(e.target))return;const b=e.target.closest('button');if(b&&/salvar|excluir|remover|adicionar|novo|nova|importar|editar|cadastrar|aplicar|confirmar|registrar/i.test(b.textContent+' '+b.getAttribute('aria-label'))){e.preventDefault();e.stopImmediatePropagation();alert('Seu perfil permite somente leitura.');}},true);
 })();

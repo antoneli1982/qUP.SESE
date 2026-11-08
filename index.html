@@ -157,19 +157,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
 <link rel="stylesheet" href="auth.css">
 <script>
 (function () {
   const firebaseConfig = {
-    apiKey: "AIzaSyA8dJOfZzZFbuEjjHLtPcXiDGbf85NtyQg",
-    authDomain: "controlmaterials.firebaseapp.com",
-    databaseURL: "https://controlmaterials-default-rtdb.firebaseio.com",
-    projectId: "controlmaterials",
-    storageBucket: "controlmaterials.firebasestorage.app",
-    messagingSenderId: "231845500854",
-    appId: "1:231845500854:web:a49b5a4453d0c00dde1317"
-  };
+  "apiKey": "AIzaSyAB0MOdMvxxBcXlESJ3s8HGR1VQ9HfFJRQ",
+  "authDomain": "quapsese.firebaseapp.com",
+  "projectId": "quapsese",
+  "storageBucket": "quapsese.firebasestorage.app",
+  "messagingSenderId": "734600894649",
+  "appId": "1:734600894649:web:a66519f0f8b1b1e9a2a368",
+  "databaseURL": "https://quapsese-default-rtdb.firebaseio.com"
+};
 
   window.__quapAccessReady = new Promise(resolve => window.__quapAccessResolve = resolve);
   const path = "ferramentas/quap/matriz_competencias_v1";
@@ -179,8 +178,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if (!window.firebase || typeof firebase.database !== "function") {
       throw new Error("O SDK do Firebase não carregou. Verifique a conexão e recarregue a página.");
     }
-    const app = firebase.apps.find(item => item.name === "quap-controlmaterials")
-      || firebase.initializeApp(firebaseConfig, "quap-controlmaterials");
+    const app = firebase.apps.find(item => item.name === "quap-quapsese")
+      || firebase.initializeApp(firebaseConfig, "quap-quapsese");
     databaseRef = app.database(firebaseConfig.databaseURL).ref(path);
     return databaseRef;
   }

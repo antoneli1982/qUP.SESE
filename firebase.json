@@ -1,1 +1,20 @@
-{"functions":{"source":"functions"},"database":{"instance":"controlmaterials-default-rtdb","rules":"firebase-database.rules.json"}}
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true
+    }
+  },
+  "database": {
+    "instance": "quapsese-default-rtdb",
+    "rules": "firebase-database.rules.json"
+  },
+  "hosting": {
+    "site": "quapsese",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
