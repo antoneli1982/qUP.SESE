@@ -27,8 +27,8 @@
   addPasswordToggles();
  }
 
- function addPasswordToggles(){
-  for(const input of panel.querySelectorAll('input[type="password"]')){
+ function addPasswordToggles(scope=panel){
+  for(const input of scope.querySelectorAll('input[type="password"]')){
    let wrap=input.parentElement;
    if(!wrap.classList.contains('access-input-wrap')){
     wrap=document.createElement('div');wrap.className='access-password-wrap';
@@ -68,22 +68,106 @@
  function changePassword(){
   show('<h2>Troque sua senha inicial</h2><p>Defina uma senha com pelo menos 6 caracteres. Pode usar apenas números.</p><form><label>Nova senha<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Confirme a senha<input name="confirm" type="password" minlength="6" required autocomplete="new-password"></label><button type="submit">Salvar nova senha</button></form>');
   button('Sair',exit,panel.querySelector('.access-card'));
-  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<6) {message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;} await auth.currentUser.updatePassword(f.password.value);await db.ref('quapAccess/users/'+auth.currentUser.uid+'/mustChangePassword').set(false);await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
+  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<6) {message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;} await adminAction({action:'changeOwnPassword',password:f.password.value});await auth.signOut();login();message('Senha alterada. Entre com sua nova senha.');}catch(err){errors(err);}finally{b.disabled=false;}};
+ }
+ function confirmSeniorPassword(){
+  return new Promise((resolve,reject)=>{
+   const dialog=document.createElement('dialog');dialog.className='access-confirm-dialog';
+   dialog.setAttribute('aria-labelledby','access-confirm-title');
+   dialog.innerHTML='<h2 id="access-confirm-title">Confirme seu acesso</h2><p>Digite sua senha de sênior para autorizar esta alteração.</p><form><label>Sua senha de acesso<input name="currentPassword" type="password" required autocomplete="current-password"></label><p class="access-confirm-error" role="alert"></p><button type="submit">Confirmar alteração</button><button type="button" class="access-secondary">Cancelar</button></form>';
+   panel.append(dialog);addPasswordToggles(dialog);
+   const form=dialog.querySelector('form'),input=form.elements.currentPassword,cancel=form.querySelector('.access-secondary'),submit=form.querySelector('[type="submit"]');
+   const close=()=>{input.value='';dialog.close();dialog.remove();};
+   const abort=()=>{close();reject(Object.assign(new Error('Alteração cancelada.'),{code:'cancelled'}));};
+   cancel.onclick=abort;dialog.oncancel=e=>{e.preventDefault();if(!submit.disabled)abort();};
+   form.onsubmit=async e=>{
+    e.preventDefault();submit.disabled=true;cancel.disabled=true;
+    try{
+     const user=auth.currentUser;
+     if(!user)throw Error('Sessão encerrada.');
+     const credential=firebase.auth.EmailAuthProvider.credential(user.email,input.value);
+     await user.reauthenticateWithCredential(credential);
+     await user.getIdToken(true);
+     close();resolve();
+    }catch{
+     input.value='';dialog.querySelector('.access-confirm-error').textContent='Não foi possível confirmar. Confira sua senha e tente novamente.';
+     input.focus();
+    }finally{submit.disabled=false;cancel.disabled=false;}
+   };
+   dialog.showModal();input.focus();
+  });
+ }
+ let functionsReady;
+ function loadFunctions(){
+  if(typeof app.functions==='function')return Promise.resolve();
+  if(!functionsReady)functionsReady=new Promise((resolve,reject)=>{
+   const script=document.createElement('script');
+   script.src='https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js';
+   script.onload=resolve;
+   script.onerror=()=>{script.remove();functionsReady=null;reject(Object.assign(new Error('Não foi possível carregar a gestão de usuários. Verifique a conexão.'),{code:'functions/unavailable'}));};
+   document.head.append(script);
+  });
+  return functionsReady;
+ }
+ async function adminAction(data){
+  try{
+   await loadFunctions();
+   if(data.action!=='changeOwnPassword')await confirmSeniorPassword();
+   const result=await app.functions('us-central1').httpsCallable('manageQuapUsers')(data);
+   return result.data;
+  }catch(error){
+   if(error.code==='cancelled'){message('Alteração cancelada.');throw error;}
+   const unavailable=['functions/not-found','functions/unavailable','functions/internal'];
+   message(unavailable.includes(error.code)?'A gestão de usuários não está disponível. Tente novamente ou contate o administrador.':error.message||'Não foi possível concluir.');
+   throw error;
+  }
+ }
+ function userForm(uid=null,login=''){
+  show('<h2>'+(uid?'Redefinir senha':'Criar usuário')+'</h2><p>'+(uid?'Defina uma senha temporária. O usuário deverá trocá-la no próximo acesso.':'O novo usuário terá acesso aprovado e deverá trocar a senha temporária no primeiro acesso.')+'</p><form id="access-user-form">'+(!uid?'<label>Login<input name="login" required autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9._-]{3,64}" placeholder="nome.sobrenome"></label><label>Nível<select name="role"><option value="viewer">Visualizador</option><option value="analyst">Analista</option><option value="senior">Sênior</option></select></label>':'<p id="access-target"></p>')+'<label>Senha temporária<input name="password" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label><label>Confirme a senha<input name="confirm" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label><p class="access-field-help">Use pelo menos 6 caracteres. Pode usar apenas números.</p><button type="submit">'+(uid?'Redefinir senha':'Criar usuário')+'</button></form>');
+  if(uid)document.getElementById('access-target').textContent='Usuário: '+login;
+  const back=button('Voltar',()=>manage(),panel.querySelector('.access-content'));
+  panel.querySelector('form').onsubmit=async e=>{
+   e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');
+   if(f.elements.password.value!==f.elements.confirm.value){message('As senhas precisam ser iguais.');return;}
+   b.disabled=true;back.disabled=true;
+   try{
+    await adminAction(uid?{action:'resetPassword',uid,password:f.elements.password.value}:{action:'create',login:f.elements.login.value.trim(),role:f.elements.role.value,password:f.elements.password.value});
+    f.reset();await manage();message(uid?'Senha redefinida. Informe a senha temporária ao usuário.':'Usuário criado. Informe o login e a senha temporária ao usuário.');
+   }catch{}finally{b.disabled=false;back.disabled=false;}
+  };
  }
  async function manage(){
-  show('<h2>Integrantes e solicitações</h2><div id="access-users">Carregando…</div>');
+  show('<h2>Integrantes e solicitações</h2><div id="access-management-actions"></div><div id="access-users">Carregando…</div>');
+  button('Criar usuário',()=>userForm(),document.getElementById('access-management-actions'));
   button('Voltar à ferramenta',()=>activate(profile),panel.querySelector('.access-card'));
-  try{const snapshot=await db.ref('quapAccess/users').once('value'),list=document.getElementById('access-users');list.textContent='';
-   snapshot.forEach(s=>{const u=s.val(),row=document.createElement('div');row.className='access-user';const title=document.createElement('p');title.textContent=u.login+' · '+(labels[u.role]||u.role)+' · '+({pending:'Aguardando aprovação',approved:'Aprovado',blocked:'Bloqueado'}[u.status]||u.status);row.append(title);
-    if(u.role!=='senior'){const select=document.createElement('select');for(const role of ['viewer','analyst']){const o=document.createElement('option');o.value=role;o.textContent=labels[role];select.append(o);}select.value=u.role;row.append(select);
-     const update=status=>async e=>{e.target.disabled=true;try{await db.ref('quapAccess/users/'+s.key).update({role:select.value,status});await manage();}catch(err){errors(err);e.target.disabled=false;}};
-     button(u.status==='pending'?'Aprovar':'Salvar perfil',update('approved'),row);button('Bloquear',update('blocked'),row);
-    }list.append(row);
+  try{
+   const snapshot=await db.ref('quapAccess/users').once('value'),list=document.getElementById('access-users');if(!list)return;list.textContent='';
+   snapshot.forEach(s=>{
+    const u=s.val(),row=document.createElement('div');row.className='access-user';
+    const title=document.createElement('p');title.textContent=u.login+' · '+(labels[u.role]||u.role)+' · '+({pending:'Aguardando aprovação',approved:'Aprovado',blocked:'Bloqueado'}[u.status]||u.status);row.append(title);
+    if(s.key===auth.currentUser.uid){
+     const note=document.createElement('p');note.textContent='Sua conta. Alterações de acesso devem ser feitas por outro sênior.';row.append(note);
+    }else{
+     const select=document.createElement('select');select.setAttribute('aria-label','Nível de '+u.login);
+     for(const role of ['viewer','analyst','senior']){const o=document.createElement('option');o.value=role;o.textContent=labels[role];select.append(o);}
+     select.value=u.role;select.disabled=u.role==='senior';row.append(select);
+     const update=status=>async()=>{
+      const controls=[...row.querySelectorAll('button,select')];controls.forEach(c=>c.disabled=true);
+      try{await adminAction({action:'profile',uid:s.key,role:select.value,status});await manage();message('Acesso atualizado.');}
+      catch{}finally{controls.forEach(c=>c.disabled=false);select.disabled=u.role==='senior';}
+     };
+     if(u.role!=='senior'){
+      button(u.status==='pending'?'Aprovar':'Salvar nível e liberar acesso',update('approved'),row);
+      button('Bloquear',update('blocked'),row);
+     }
+     button('Redefinir senha',()=>userForm(s.key,u.login),row);
+    }
+    list.append(row);
    });
   }catch(err){errors(err);}
  }
  function activate(p){
-  panel.hidden=true;root.style.display='';root.inert=false;bar.hidden=false;bar.textContent=p.login+' · '+labels[p.role]+' ';
+  panel.hidden=true;panel.textContent='';root.style.display='';root.inert=false;bar.hidden=false;bar.textContent=p.login+' · '+labels[p.role]+' ';
   if(p.role==='senior')button('Gerenciar integrantes',manage,bar);button('Sair',exit,bar);
   document.body.dataset.quapRole=p.role;refreshWriteButtons();readyResolve();
  }

@@ -1,34 +1,45 @@
-# Controle de acesso — plano gratuito
+# Controle de acesso
 
-A aplicação usa Firebase Authentication (Email/Senha) e Realtime Database no projeto `quapsese`. Não usa Cloud Functions nem exige plano Blaze.
+A aplicação usa Firebase Authentication (Email/Senha) e Realtime Database no projeto `quapsese`. A gestão de usuários desta versão depende da função `manageQuapUsers`, com Firebase Admin SDK no servidor. Nunca coloque credenciais administrativas no HTML.
 
 | Perfil | Permissões |
 |---|---|
-| Sênior | Todas as consultas e alterações operacionais; aprovar, bloquear e definir analistas ou visualizadores |
+| Sênior | Consultar e alterar dados; criar usuários; aprovar, bloquear, definir níveis e redefinir senhas de outros usuários |
 | Analista | Consultar, inserir, alterar e excluir dados operacionais |
 | Visualizador | Consultar dados; gravações negadas no banco |
 | Pendente/bloqueado | Sem acesso aos registros operacionais |
 
-Usuários iniciais: `Ivan.Antoneli` e `Grabriela.Baptista`, com senha temporária solicitada `123456`. O espaço após o ponto foi removido. No primeiro acesso a tela exige uma senha de pelo menos 6 caracteres, permitindo apenas números. Nenhuma senha é guardada no banco de perfis ou no código publicado.
+## Gestão pelo sênior
 
-## Limite da troca inicial
+Em **Gerenciar integrantes**, use **Criar usuário** para definir login, nível e senha temporária. Os níveis são Visualizador, Analista e Sênior. A conta é criada aprovada e exige troca de senha no primeiro acesso. Senhas aceitam de 6 a 128 caracteres, inclusive somente números. O servidor do Firebase também aplica a política de senhas configurada no projeto.
 
-Nesta implementação gratuita a aplicação primeiro aguarda a confirmação de `updatePassword` pelo Firebase Authentication e depois libera o perfil. As regras impedem o usuário de alterar seu perfil, aprovação ou privilégio, mas permitem que ele limpe seu próprio indicador de troca inicial. Portanto, esse indicador **não comprova no servidor que houve troca de senha**: um cliente modificado pode contornar a tela. A proteção de perfis e aprovação é independente e aplicada no servidor. Faça a troca das duas senhas temporárias imediatamente. A validação estrita do processo de troca exige um componente confiável de servidor.
+Cada criação, aprovação, bloqueio, mudança de nível e redefinição abre uma confirmação para digitar novamente a senha do sênior. A interface usa `reauthenticateWithCredential`; o servidor valida o token, sua revogação, autenticação nos últimos 60 segundos e o perfil atual no banco. Cancelar ou errar a senha não executa a alteração.
 
-## Publicação
+Use **Redefinir senha** para atribuir uma nova senha temporária. A senha anterior não é recuperada nem exibida. As senhas não são armazenadas no banco de perfis, nos logs ou no código. Informe a senha temporária ao destinatário por um canal apropriado.
 
-Os arquivos fonte são `index.html`, `auth.js`, `auth.css`, `logo-original.png`, `logo-sese.png` e `neural-network.svg`. Copie os seis para `public/` antes de publicar. A pasta `public/` é gerada e ignorada pelo Git.
+A própria conta não pode ser gerenciada nessa tela. Seniores existentes são protegidos contra bloqueio e rebaixamento, inclusive por requisições diretas; outro sênior pode redefinir sua senha. Rebaixar um sênior exige administração do projeto.
 
-Com a conta administrativa conectada:
+## Troca inicial e sessões antigas
 
-```
-firebase deploy --only auth,database,hosting --project quapsese
-```
+A redefinição fecha o acesso operacional antes de alterar a senha e revoga as sessões. O perfil registra somente o instante `passwordResetAt`, sem senha. As regras exigem autenticação posterior a esse instante, impedindo o uso de tokens antigos mesmo depois da conclusão da troca inicial.
 
-As regras são exclusivas do projeto `quapsese`. Não publicar estas regras no banco compartilhado `controlmaterials`. Dados operacionais da versão anterior foram copiados para o mesmo caminho relativo no banco `quapsese`, mantendo a cópia original. A versão antiga que usa `controlmaterials` precisa ser substituída nos endereços de distribuição; sua cópia de dados e suas regras públicas não foram alteradas por afetarem um projeto compartilhado.
+A troca obrigatória passa pelo servidor. O cliente não pode mais limpar `mustChangePassword` diretamente. Depois da troca, o usuário entra novamente. Se uma redefinição falhar parcialmente, o acesso permanece fechado até nova tentativa; o sistema não anuncia sucesso.
 
-Identificadores internos terminam em `@users.quapsese.invalid`; são chaves de login, sem caixa postal. Não há recuperação por e-mail nesta versão. Seniores existentes não podem ser rebaixados, bloqueados ou criados pela tela de gestão; isso requer administração do projeto.
+Identificadores terminam em `@users.quapsese.invalid`; são chaves de login sem caixa postal. Não existe recuperação por e-mail nesta versão.
 
-## Verificação
+## Publicação coordenada obrigatória
 
-Regras compiladas e publicadas. Testes reais com usuários temporários cobrem acesso anônimo, primeiro acesso dos seniores, solicitação pendente, negação de autoaprovação/autopromoção, leitura de visualizador, negação de sua gravação direta, gravação por analista e sênior, aprovação e bloqueio e revogação com sessão aberta. Os usuários temporários foram removidos. Login e tela de troca inicial também foram verificados no navegador, sem erros JavaScript.
+**Esta versão não deve ser integrada à main nem publicada parcialmente antes de preparar o backend.** Cloud Functions exige projeto no plano Blaze, com faturamento habilitado. A documentação anterior descrevia uma versão sem Functions; essa condição muda aqui. Não habilitar faturamento automaticamente.
+
+1. Com acesso administrativo autorizado ao projeto `quapsese`, confirme o plano e instale Firebase CLI e Node.js 22.
+2. Na pasta `functions`, execute `npm ci` e `npm test`.
+3. Publique primeiro o backend: `firebase deploy --only functions:manageQuapUsers --project quapsese`.
+4. Prepare `public/` com `index.html`, `auth.js`, `auth.css`, `logo-original.png`, `logo-sese.png` e `neural-network.svg`.
+5. Publique o frontend e as regras juntos, em janela de manutenção: `firebase deploy --only database,hosting --project quapsese`. Atualize também GitHub Pages integrando a alteração e solicite recarga das abas antigas. A versão anterior da troca inicial deixa de funcionar com as novas regras.
+6. Valide em ambiente publicado, com usuários de teste: confirmação de senha incorreta/correta, criação nos três níveis, alteração de nível, bloqueio, redefinição, troca obrigatória e tentativa com sessão antiga.
+
+As regras são exclusivas de `quapsese`. Não publicar no projeto compartilhado `controlmaterials`. Os dados operacionais mantêm os mesmos caminhos.
+
+## Validação desta alteração
+
+Os testes locais em `functions/management.test.js` usam Auth e banco simulados. Cobrem autorização, confirmação recente, entradas inválidas, criação e rollback, promoção, proteção de seniores, redefinição, revogação, falha parcial e troca obrigatória com sessão recente. Não substituem testes no Emulator Suite ou no ambiente publicado. Sintaxe JavaScript e whitespace também são verificados. Implantação e teste ponta a ponta no Firebase ainda pendentes.

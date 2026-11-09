@@ -175,3 +175,13 @@
 }
 #quap-access .access-password-toggle:hover { background: #e8f0f1; color: #11796f; }
 .access-password-toggle svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.7; }
+
+#quap-access .access-confirm-dialog {
+  width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+  padding: 28px; border: 1px solid #dbe3e9; border-radius: 16px;
+  color: var(--access-ink); background: #fff;
+}
+.access-confirm-dialog::backdrop { background: #142c4299; }
+#quap-access .access-confirm-dialog h2 { font-size: 23px; }
+.access-confirm-dialog .access-secondary { margin-top: 12px; }
+.access-confirm-error { color: #a43333; }
