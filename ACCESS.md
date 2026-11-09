@@ -9,7 +9,7 @@ A aplicação usa Firebase Authentication (Email/Senha) e Realtime Database no p
 | Visualizador | Consultar dados; gravações negadas no banco |
 | Pendente/bloqueado | Sem acesso aos registros operacionais |
 
-Usuários iniciais: `Ivan.Antoneli` e `Grabriela.Baptista`, com senha temporária solicitada `123456`. O espaço após o ponto foi removido. No primeiro acesso a tela exige uma senha de pelo menos 12 caracteres, letras e números. Nenhuma senha é guardada no banco de perfis ou no código publicado.
+Usuários iniciais: `Ivan.Antoneli` e `Grabriela.Baptista`, com senha temporária solicitada `123456`. O espaço após o ponto foi removido. No primeiro acesso a tela exige uma senha de pelo menos 6 caracteres, permitindo apenas números. Nenhuma senha é guardada no banco de perfis ou no código publicado.
 
 ## Limite da troca inicial
 

@@ -24,18 +24,41 @@
     <div class="access-card-footer">Pessoas e competências, na mesma conexão.</div>
    </div>
   </div>`;
+  addPasswordToggles();
  }
 
+ function addPasswordToggles(){
+  for(const input of panel.querySelectorAll('input[type="password"]')){
+   let wrap=input.parentElement;
+   if(!wrap.classList.contains('access-input-wrap')){
+    wrap=document.createElement('div');wrap.className='access-password-wrap';
+    input.before(wrap);wrap.append(input);
+   }
+   wrap.classList.add('access-password-wrap');
+   input.id='access-'+input.name;
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='access-password-toggle';
+   toggle.setAttribute('aria-controls',input.id);
+   const render=()=>{
+    const visible=input.type==='text';
+    const label=visible?'Ocultar senha':'Mostrar senha';
+    toggle.setAttribute('aria-label',label);toggle.title=label;
+    toggle.setAttribute('aria-pressed',String(visible));
+    toggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(visible?'<path d="m3 3 18 18"/>':'')+'</svg>';
+   };
+   toggle.onclick=()=>{input.type=input.type==='password'?'text':'password';render();};
+   render();wrap.append(toggle);
+  }
+ }
  function message(text){const el=document.getElementById('access-message');if(el)el.textContent=text;}
  function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.className='access-secondary';b.onclick=action;parent.append(b);return b;}
  function exit(){auth.signOut().finally(()=>location.reload());}
  function errors(error){console.error('Falha no acesso:',error.code);message(error.code==='auth/too-many-requests'?'Muitas tentativas. Aguarde e tente novamente.':'Não foi possível concluir. Confira os dados ou tente novamente.');}
  function login(register=false){
-  show('<p class="access-step">'+(register?'JUNTE-SE À EQUIPE':'BEM-VINDO DE VOLTA')+'</p><h2>'+(register?'Solicitar acesso':'Entrar')+'</h2><p class="access-description">'+(register?'Crie seu acesso. Um sênior avaliará sua solicitação.':'Entre com suas credenciais para acessar a plataforma.')+'</p><form id="access-form"><label>Login<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></div></label><label>Senha<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input name="password" type="password" required autocomplete="'+(register?'new-password':'current-password')+'" placeholder="'+(register?'Crie uma senha':'Digite sua senha')+'"></div></label>'+(register?'<p class="access-field-help">Use pelo menos 12 caracteres, letras e números.</p>':'')+'<button type="submit">'+(register?'Enviar solicitação':'Entrar')+'<span aria-hidden="true">↗</span></button></form><div class="access-divider"><span>'+(register?'Já faz parte da equipe?':'Ainda não tem uma conta?')+'</span></div>',register?'register':'login');
+  show('<p class="access-step">'+(register?'JUNTE-SE À EQUIPE':'BEM-VINDO DE VOLTA')+'</p><h2>'+(register?'Solicitar acesso':'Entrar')+'</h2><p class="access-description">'+(register?'Crie seu acesso. Um sênior avaliará sua solicitação.':'Entre com suas credenciais para acessar a plataforma.')+'</p><form id="access-form"><label>Login<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></div></label><label>Senha<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input name="password" type="password" required autocomplete="'+(register?'new-password':'current-password')+'" placeholder="'+(register?'Crie uma senha':'Digite sua senha')+'"></div></label>'+(register?'<p class="access-field-help">Use pelo menos 6 caracteres. Pode usar apenas números.</p>':'')+'<button type="submit">'+(register?'Enviar solicitação':'Entrar')+'<span aria-hidden="true">↗</span></button></form><div class="access-divider"><span>'+(register?'Já faz parte da equipe?':'Ainda não tem uma conta?')+'</span></div>',register?'register':'login');
   button(register?'Voltar ao login':'Solicitar novo acesso',()=>login(!register),panel.querySelector('.access-content'));
-  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,b=form.querySelector('button');b.disabled=true;
+  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,b=form.querySelector('button[type="submit"]');b.disabled=true;
    try{const name=form.elements.login.value.trim(),password=form.elements.password.value,email=name.toLowerCase()+'@users.quapsese.invalid';
-    if(register){if(password.length<12||!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password))throw Error('weak');
+    if(register){if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
      const result=await auth.createUserWithEmailAndPassword(email,password);
      await db.ref('quapAccess/users/'+result.user.uid).set({login:name,role:'viewer',status:'pending',mustChangePassword:false});
     }else await auth.signInWithEmailAndPassword(email,password);
@@ -43,9 +66,9 @@
   };
  }
  function changePassword(){
-  show('<h2>Troque sua senha inicial</h2><p>Defina uma senha com pelo menos 12 caracteres, letras e números para liberar o acesso.</p><form><label>Nova senha<input name="password" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label><label>Confirme a senha<input name="confirm" type="password" required autocomplete="new-password"></label><button>Salvar nova senha</button></form>');
+  show('<h2>Troque sua senha inicial</h2><p>Defina uma senha com pelo menos 6 caracteres. Pode usar apenas números.</p><form><label>Nova senha<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Confirme a senha<input name="confirm" type="password" minlength="6" required autocomplete="new-password"></label><button type="submit">Salvar nova senha</button></form>');
   button('Sair',exit,panel.querySelector('.access-card'));
-  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<12||!/[a-zA-Z]/.test(f.password.value)||!/[0-9]/.test(f.password.value)) {message('Use pelo menos 12 caracteres, letras e números.');return;} await auth.currentUser.updatePassword(f.password.value);await db.ref('quapAccess/users/'+auth.currentUser.uid+'/mustChangePassword').set(false);await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
+  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<6) {message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;} await auth.currentUser.updatePassword(f.password.value);await db.ref('quapAccess/users/'+auth.currentUser.uid+'/mustChangePassword').set(false);await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
  }
  async function manage(){
   show('<h2>Integrantes e solicitações</h2><div id="access-users">Carregando…</div>');
