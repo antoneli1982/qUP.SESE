@@ -52,7 +52,45 @@
  function message(text){const el=document.getElementById('access-message');if(el)el.textContent=text;}
  function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.className='access-secondary';b.onclick=action;parent.append(b);return b;}
  function exit(){auth.signOut().finally(()=>location.reload());}
- function errors(error){console.error('Falha no acesso:',error.code);message(error.code==='auth/too-many-requests'?'Muitas tentativas. Aguarde e tente novamente.':'Não foi possível concluir. Confira os dados ou tente novamente.');}
+ const errorMessages={
+  'auth/too-many-requests':'Muitas tentativas. Aguarde e tente novamente.',
+  'auth/email-already-in-use':'Este login já está em uso.',
+  'auth/weak-password':'Use pelo menos 6 caracteres. Pode usar apenas números.',
+  'functions/permission-denied':'Seu perfil não permite esta ação.',
+  'functions/not-found':'Integrante não encontrado ou função de senha não publicada no Firebase.',
+  'functions/unauthenticated':'Sua sessão expirou. Entre novamente.',
+  'functions/invalid-argument':'Dados inválidos. Confira a senha informada.',
+  'script-load-failed':'Não foi possível carregar o módulo de senhas. Verifique a conexão.'
+ };
+ function errors(error){console.error('Falha no acesso:',error.code||error.message);message(errorMessages[error.code||error.message]||'Não foi possível concluir. Confira os dados ou tente novamente.');}
+
+ // User provisioning and password reset (senior only).
+ const FUNCTIONS_REGION='southamerica-east1';
+ const loginPattern=/^[A-Za-z0-9._-]{3,64}$/;
+ const toEmail=name=>name.toLowerCase()+'@users.quapsese.invalid';
+ function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('script-load-failed'));document.head.append(s);});}
+ async function callFunction(name,data){
+  if(typeof app.functions!=='function')await loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js');
+  const result=await app.functions(FUNCTIONS_REGION).httpsCallable(name)(data);
+  return result.data;
+ }
+ // Uses a secondary app instance so creating the account does not replace the senior's session.
+ async function provisionUser(name,password,role){
+  const secondary=firebase.initializeApp(app.options,'quap-provision-'+Date.now());
+  try{
+   const secondaryAuth=secondary.auth();
+   await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+   const result=await secondaryAuth.createUserWithEmailAndPassword(toEmail(name),password);
+   try{
+    await db.ref('quapAccess/users/'+result.user.uid).set({login:name,role,status:'approved',mustChangePassword:true});
+   }catch(err){
+    // Roll back the orphan account if the profile could not be written.
+    await result.user.delete().catch(()=>{});
+    throw err;
+   }
+   await secondaryAuth.signOut();
+  }finally{await secondary.delete().catch(()=>{});}
+ }
  function login(register=false){
   show('<p class="access-step">'+(register?'JUNTE-SE À EQUIPE':'BEM-VINDO DE VOLTA')+'</p><h2>'+(register?'Solicitar acesso':'Entrar')+'</h2><p class="access-description">'+(register?'Crie seu acesso. Um sênior avaliará sua solicitação.':'Entre com suas credenciais para acessar a plataforma.')+'</p><form id="access-form"><label>Login<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></div></label><label>Senha<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input name="password" type="password" required autocomplete="'+(register?'new-password':'current-password')+'" placeholder="'+(register?'Crie uma senha':'Digite sua senha')+'"></div></label>'+(register?'<p class="access-field-help">Use pelo menos 6 caracteres. Pode usar apenas números.</p>':'')+'<button type="submit">'+(register?'Enviar solicitação':'Entrar')+'<span aria-hidden="true">↗</span></button></form><div class="access-divider"><span>'+(register?'Já faz parte da equipe?':'Ainda não tem uma conta?')+'</span></div>',register?'register':'login');
   button(register?'Voltar ao login':'Solicitar novo acesso',()=>login(!register),panel.querySelector('.access-content'));
@@ -71,13 +109,41 @@
   panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<6) {message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;} await auth.currentUser.updatePassword(f.password.value);await db.ref('quapAccess/users/'+auth.currentUser.uid+'/mustChangePassword').set(false);await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
  }
  async function manage(){
-  show('<h2>Integrantes e solicitações</h2><div id="access-users">Carregando…</div>');
+  show('<h2>Integrantes e solicitações</h2><form id="access-new-user" class="access-new-user"><h3>Novo integrante</h3><label>Login<input name="login" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha inicial<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Perfil<select name="role"><option value="viewer">Visualizador</option><option value="analyst">Analista</option></select></label><p class="access-field-help">O integrante entra com esta senha e precisa trocá-la no primeiro acesso.</p><button type="submit">Cadastrar integrante</button></form><div id="access-users">Carregando…</div>');
   button('Voltar à ferramenta',()=>activate(profile),panel.querySelector('.access-card'));
+  const newUserForm=document.getElementById('access-new-user');
+  newUserForm.onsubmit=async e=>{
+   e.preventDefault();
+   const submit=newUserForm.querySelector('button[type="submit"]');
+   const name=newUserForm.elements.login.value.trim(),password=newUserForm.elements.password.value,role=newUserForm.elements.role.value;
+   if(!loginPattern.test(name)){message('Login: de 3 a 64 caracteres, com letras, números, ponto, hífen ou sublinhado.');return;}
+   if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
+   if(!['viewer','analyst'].includes(role))return;
+   submit.disabled=true;
+   try{await provisionUser(name,password,role);await manage();message('Integrante '+name+' cadastrado. Informe a senha inicial a ele.');}
+   catch(err){errors(err);submit.disabled=false;}
+  };
   try{const snapshot=await db.ref('quapAccess/users').once('value'),list=document.getElementById('access-users');list.textContent='';
    snapshot.forEach(s=>{const u=s.val(),row=document.createElement('div');row.className='access-user';const title=document.createElement('p');title.textContent=u.login+' · '+(labels[u.role]||u.role)+' · '+({pending:'Aguardando aprovação',approved:'Aprovado',blocked:'Bloqueado'}[u.status]||u.status);row.append(title);
     if(u.role!=='senior'){const select=document.createElement('select');for(const role of ['viewer','analyst']){const o=document.createElement('option');o.value=role;o.textContent=labels[role];select.append(o);}select.value=u.role;row.append(select);
      const update=status=>async e=>{e.target.disabled=true;try{await db.ref('quapAccess/users/'+s.key).update({role:select.value,status});await manage();}catch(err){errors(err);e.target.disabled=false;}};
      button(u.status==='pending'?'Aprovar':'Salvar perfil',update('approved'),row);button('Bloquear',update('blocked'),row);
+     const resetButton=button('Redefinir senha',()=>{
+      resetButton.hidden=true;
+      const reset=document.createElement('div');reset.className='access-reset';
+      const input=document.createElement('input');input.type='password';input.minLength=6;input.maxLength=128;input.autocomplete='new-password';
+      input.placeholder='Nova senha temporária';input.setAttribute('aria-label','Nova senha temporária de '+u.login);
+      reset.append(input);
+      button('Confirmar redefinição',async e=>{
+       const password=input.value;
+       if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
+       e.target.disabled=true;
+       try{await callFunction('quapResetPassword',{uid:s.key,password});await manage();message('Senha de '+u.login+' redefinida. A troca será exigida no próximo acesso.');}
+       catch(err){errors(err);e.target.disabled=false;}
+      },reset);
+      button('Cancelar',()=>{reset.remove();resetButton.hidden=false;},reset);
+      row.append(reset);input.focus();
+     },row);
     }list.append(row);
    });
   }catch(err){errors(err);}
