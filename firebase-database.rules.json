@@ -4,10 +4,10 @@
     ".write": false,
     "quapAccess": {
       "users": {
-        ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior'",
+        ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior' && (!root.child('quapAccess/users').child(auth.uid).child('passwordResetAt').exists() || auth.token.auth_time >= root.child('quapAccess/users').child(auth.uid).child('passwordResetAt').val())",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
-          ".write": "(auth != null && auth.uid === $uid && !data.exists() && newData.child('status').val() === 'pending' && newData.child('role').val() === 'viewer' && newData.child('mustChangePassword').val() === false && auth.token.email === newData.child('login').val().toLowerCase() + '@users.quapsese.invalid') || (auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior' && auth.uid !== $uid && data.exists() && data.child('role').val() !== 'senior' && newData.child('login').val() === data.child('login').val() && newData.child('mustChangePassword').val() === data.child('mustChangePassword').val() && (newData.child('role').val() === 'viewer' || newData.child('role').val() === 'analyst') && (newData.child('status').val() === 'approved' || newData.child('status').val() === 'blocked'))",
+          ".write": "(auth != null && auth.uid === $uid && !data.exists() && newData.child('status').val() === 'pending' && newData.child('role').val() === 'viewer' && newData.child('mustChangePassword').val() === false && !newData.child('passwordResetAt').exists() && auth.token.email === newData.child('login').val().toLowerCase() + '@users.quapsese.invalid')",
           ".validate": "newData.hasChildren(['login','status','role','mustChangePassword'])",
           "login": {
             ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._-]{3,64}$/)"
@@ -19,11 +19,13 @@
             ".validate": "newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'blocked'"
           },
           "mustChangePassword": {
-            ".write": "auth != null && auth.uid === $uid && data.val() === true && newData.val() === false",
             ".validate": "newData.isBoolean()"
           },
           "$other": {
             ".validate": false
+          },
+          "passwordResetAt": {
+            ".validate": "newData.isNumber()"
           }
         }
       }
@@ -31,8 +33,8 @@
     "ferramentas": {
       "quap": {
         "matriz_competencias_v1": {
-          ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false",
-          ".write": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && (root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior' || root.child('quapAccess/users').child(auth.uid).child('role').val() === 'analyst')"
+          ".read": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && (!root.child('quapAccess/users').child(auth.uid).child('passwordResetAt').exists() || auth.token.auth_time >= root.child('quapAccess/users').child(auth.uid).child('passwordResetAt').val())",
+          ".write": "auth != null && root.child('quapAccess/users').child(auth.uid).child('status').val() === 'approved' && root.child('quapAccess/users').child(auth.uid).child('mustChangePassword').val() === false && (root.child('quapAccess/users').child(auth.uid).child('role').val() === 'senior' || root.child('quapAccess/users').child(auth.uid).child('role').val() === 'analyst') && (!root.child('quapAccess/users').child(auth.uid).child('passwordResetAt').exists() || auth.token.auth_time >= root.child('quapAccess/users').child(auth.uid).child('passwordResetAt').val())"
         }
       }
     }
