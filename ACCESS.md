@@ -27,7 +27,7 @@ firebase deploy --only auth,database,hosting --project quapsese
 
 As regras são exclusivas do projeto `quapsese`. Não publicar estas regras no banco compartilhado `controlmaterials`. Dados operacionais da versão anterior foram copiados para o mesmo caminho relativo no banco `quapsese`, mantendo a cópia original. A versão antiga que usa `controlmaterials` precisa ser substituída nos endereços de distribuição; sua cópia de dados e suas regras públicas não foram alteradas por afetarem um projeto compartilhado.
 
-Identificadores internos terminam em `@users.quapsese.invalid`; são chaves de login, sem caixa postal. Não há recuperação por e-mail nesta versão. O Sênior pode cadastrar usuários diretamente e promover integrantes a Sênior. Seniores existentes não podem ser rebaixados ou bloqueados pela tela de gestão. O cadastro público foi removido e a criação de perfis no banco é exclusiva de seniores aprovados. As alterações solicitam novamente a senha do Sênior na interface.
+Contas antigas usam identificadores internos em `@users.quapsese.invalid`, sem caixa postal, e precisam cadastrar um e-mail real para habilitar a recuperação. Novos integrantes entram pelo e-mail informado no cadastro. O Sênior pode cadastrar usuários diretamente e promover integrantes a Sênior. Seniores existentes não podem ser rebaixados ou bloqueados pela tela de gestão. O cadastro público foi removido e a criação de perfis no banco é exclusiva de seniores aprovados. As alterações solicitam novamente a senha do Sênior na interface.
 
 ## Senha e recuperação por e-mail
 
