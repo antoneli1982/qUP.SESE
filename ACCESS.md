@@ -29,7 +29,17 @@ As regras são exclusivas do projeto `quapsese`. Não publicar estas regras no b
 
 Identificadores internos terminam em `@users.quapsese.invalid`; são chaves de login, sem caixa postal. Não há recuperação por e-mail nesta versão. O Sênior pode cadastrar usuários diretamente e promover integrantes a Sênior. Seniores existentes não podem ser rebaixados ou bloqueados pela tela de gestão. O cadastro público foi removido e a criação de perfis no banco é exclusiva de seniores aprovados. As alterações solicitam novamente a senha do Sênior na interface.
 
-## Publicação da alteração de perfis
+## Senha e recuperação por e-mail
+
+Novos integrantes devem ter um e-mail real cadastrado pelo Sênior; o Firebase Authentication usa esse endereço para entrar e recuperar a senha. A identificação do integrante continua no perfil, sem publicar o e-mail em diretórios de login. Contas antigas ainda entram pelo login anterior, mas precisam cadastrar e confirmar um e-mail antes de usar a ferramenta.
+
+Na entrada estão disponíveis **Esqueci minha senha**, **Alterar minha senha** e **Cadastrar meu e-mail**. A troca de senha exige autenticação com a senha atual, em uma sessão separada que não troca o usuário da ferramenta. O cadastro de e-mail exige senha atual e verificação do endereço via `verifyBeforeUpdateEmail`; o endereço de acesso muda somente após confirmar o link recebido. Após a confirmação, entrar com o e-mail, em vez da antiga identificação.
+
+**Esqueci minha senha** usa `sendPasswordResetEmail`. A página valida o código do link com `verifyPasswordResetCode` e salva a senha com `confirmPasswordReset`. Links de verificação e alteração de e-mail são validados com `checkActionCode` e confirmados com `applyActionCode`. O código é removido da barra de endereço ao abrir a página. A resposta de recuperação não revela se uma conta existe. Senhas e códigos de recuperação não são gravados no projeto, banco de perfis ou armazenamento local.
+
+No Firebase Authentication, o URL acionável personalizado dos modelos deve apontar para `https://antoneli1982.github.io/qUP.SESE/`. O envio de e-mails reais, sua entrega e a confirmação das credenciais devem ser feitos pelo próprio usuário. Uma conta antiga sem senha conhecida nem e-mail cadastrado ainda exige recuperação administrativa; informar um e-mail arbitrário não libera acesso.
+
+## Publicação das regras de perfis
 
 É necessário publicar `firebase-database.rules.json` no projeto `quapsese`, além de atualizar `auth.js` no endereço usado pela equipe. Alterar apenas o GitHub não publica regras no Firebase. O Firebase Authentication pode aceitar contas sem perfil via API; elas não recebem acesso à ferramenta.
 

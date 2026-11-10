@@ -126,6 +126,9 @@
 .access-field-help { margin: -9px 0 18px; color: var(--access-muted); font-size: 10px; }
 #access-message { margin: 0 0 16px; padding: 10px 12px; border-radius: 8px; color: #a43333; background: #fff3f2; font-size: 12px; }
 #access-message:empty { display: none; }
+#access-message[data-success='true'] { color: #17634f; background: #eaf7f0; }
+.access-help-actions { display: grid; gap: 8px; margin: 16px 0 24px; }
+#quap-access .access-content > .access-secondary { margin-top: 10px; }
 #quap-access[data-mode='account'] .access-content > p:not(#access-message) { margin: 14px 0 24px; color: var(--access-muted); font-size: 13px; line-height: 1.7; }
 #quap-access[data-mode='account'] form + .access-secondary { margin-top: 14px; }
 .access-user { padding: 16px 0; border-top: 1px solid #e4eaef; }

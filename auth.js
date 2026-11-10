@@ -2,6 +2,10 @@
 (()=>{
  const app=firebase.apps.find(a=>a.name==='quap-quapsese');
  const auth=app.auth(),db=app.database(app.options.databaseURL);
+ auth.languageCode='pt-BR';
+ const actionParams=new URLSearchParams(location.search);
+ const emailResetActive=actionParams.get('mode')==='resetPassword'&&!!actionParams.get('oobCode');
+ const emailActionActive=['verifyEmail','verifyAndChangeEmail','recoverEmail'].includes(actionParams.get('mode'))&&!!actionParams.get('oobCode');
  let profile=null,unwatch=()=>{},readyResolve=window.__quapAccessResolve;
 
  const root=document.getElementById('root');
@@ -52,7 +56,7 @@
    render();wrap.append(toggle);
   }
  }
- function message(text){const el=document.getElementById('access-message');if(el){el.textContent=text;el.scrollIntoView({block:'center',behavior:'smooth'});}}
+ function message(text,success=false){const el=document.getElementById('access-message');if(el){el.dataset.success=String(success);el.textContent=text;el.scrollIntoView({block:'center',behavior:'smooth'});}}
  function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.className='access-secondary';b.onclick=action;parent.append(b);return b;}
  function exit(){auth.signOut().finally(()=>location.reload());}
  const errorMessages={
@@ -60,9 +64,14 @@
   'PERMISSION_DENIED':'Seu perfil não permite esta ação ou as regras de acesso ainda precisam ser atualizadas.',
   'auth/too-many-requests':'Muitas tentativas. Aguarde e tente novamente.',
   'auth/email-already-in-use':'Este login já está em uso.',
-  'auth/wrong-password':'Senha de Sênior incorreta.',
-  'auth/invalid-credential':'Senha de Sênior incorreta.',
-  'auth/invalid-login-credentials':'Senha de Sênior incorreta.',
+  'auth/wrong-password':'Login/e-mail ou senha atual incorretos.',
+  'auth/invalid-credential':'Login/e-mail ou senha atual incorretos.',
+  'auth/invalid-login-credentials':'Login/e-mail ou senha atual incorretos.',
+  'auth/user-not-found':'Login/e-mail ou senha atual incorretos.',
+  'auth/requires-recent-login':'Confirme sua senha atual e tente novamente.',
+  'auth/user-disabled':'Esta conta está desativada. Procure o responsável pela ferramenta.',
+  'auth/expired-action-code':'Este link expirou. Solicite um novo link em Esqueci minha senha.',
+  'auth/invalid-action-code':'Este link já foi usado ou é inválido. Solicite um novo link em Esqueci minha senha.',
   'auth/network-request-failed':'Falha de conexão. Verifique a internet e tente novamente.',
   'auth/operation-not-allowed':'O login por e-mail/senha não está habilitado no Firebase.',
   'auth/invalid-email':'Login inválido.',
@@ -73,12 +82,13 @@
   'functions/invalid-argument':'Dados inválidos. Confira a senha informada.',
   'script-load-failed':'Não foi possível carregar o módulo de senhas. Verifique a conexão.'
  };
- function errors(error){console.error('Falha no acesso:',error.code||error.message,error);message(errorMessages[error.code||error.message]||'Não foi possível concluir. Confira os dados ou tente novamente.');}
+ function errors(error){console.error('Falha no acesso:',error.code||'unknown');message(errorMessages[error.code||error.message]||'Não foi possível concluir. Confira os dados ou tente novamente.');}
 
  // User provisioning and password reset (senior only).
  const FUNCTIONS_REGION='southamerica-east1';
  const loginPattern=/^[A-Za-z0-9._-]{3,64}$/;
- const toEmail=name=>name.toLowerCase()+'@users.quapsese.invalid';
+ const toEmail=name=>name.trim().toLowerCase().includes('@')?name.trim().toLowerCase():name.trim().toLowerCase()+'@users.quapsese.invalid';
+ const realEmail=email=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&!email.toLowerCase().endsWith('.invalid');
  function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('script-load-failed'));document.head.append(s);});}
  async function callFunction(name,data){
   if(typeof app.functions!=='function')await loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js');
@@ -86,14 +96,15 @@
   return result.data;
  }
  // Uses a secondary app instance so creating the account does not replace the senior's session.
- async function provisionUser(name,password,role){
+ async function provisionUser(name,password,role,email){
+  if(!realEmail(email))throw Object.assign(new Error(),{code:'auth/invalid-email'});
   await confirmSenior();
   if(!['viewer','analyst','senior'].includes(role))throw new Error('Perfil inválido.');
   const secondary=firebase.initializeApp(app.options,'quap-provision-'+Date.now());
   try{
    const secondaryAuth=secondary.auth();
    await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
-   const result=await secondaryAuth.createUserWithEmailAndPassword(toEmail(name),password);
+   const result=await secondaryAuth.createUserWithEmailAndPassword(email,password);
    try{
     await db.ref('quapAccess/users/'+result.user.uid).set({login:name,role,status:'approved',mustChangePassword:true});
    }catch(err){
@@ -124,12 +135,114 @@
   await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email,password));
  }
  function login(){
-  show('<p class="access-step">BEM-VINDO DE VOLTA</p><h2>Entrar</h2><p class="access-description">Entre com suas credenciais para acessar a plataforma.</p><form id="access-form"><label>Login<input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha<input name="password" type="password" required autocomplete="current-password" placeholder="Digite sua senha"></label><button type="submit">Entrar</button></form><p class="access-field-help">Ainda não tem uma conta? Solicite o cadastro a um Sênior. Apenas esse perfil pode cadastrar usuários na ferramenta.</p>','login');
+  show('<p class="access-step">BEM-VINDO DE VOLTA</p><h2>Entrar</h2><p class="access-description">Use seu e-mail cadastrado. Contas antigas sem e-mail ainda podem usar o login.</p><form id="access-form"><label>Login ou e-mail<input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="seu@email.com ou nome.sobrenome"></label><label>Senha<input name="password" type="password" required autocomplete="current-password" placeholder="Digite sua senha"></label><button type="submit">Entrar</button></form><div class="access-help-actions"></div><p class="access-field-help">Ainda não tem uma conta? Solicite o cadastro a um Sênior.</p>','login');
+  const help=panel.querySelector('.access-help-actions');
+  button('Esqueci minha senha',forgotPassword,help);
+  button('Alterar minha senha',()=>credentials('password'),help);
+  button('Cadastrar meu e-mail',()=>credentials('email'),help);
   panel.querySelector('form').onsubmit=async e=>{
    e.preventDefault();const form=e.target,b=form.querySelector('button[type="submit"]');b.disabled=true;
    try{await auth.signInWithEmailAndPassword(toEmail(form.elements.login.value.trim()),form.elements.password.value);}
    catch(err){errors(err);}finally{b.disabled=false;}
   };
+ }
+ function accountBack(){if(profile?.status==='approved'&&!profile.mustChangePassword)activate(profile);else login();}
+ function forgotPassword(){
+  show('<h2>Esqueci minha senha</h2><p>Informe o e-mail cadastrado na sua conta para receber o link de redefinição.</p><form id="access-recover"><label>E-mail cadastrado<input name="email" type="email" required autocomplete="email" placeholder="seu@email.com"></label><button type="submit">Enviar link de recuperação</button></form><p class="access-field-help">Ainda não cadastrou seu e-mail? É necessário confirmar sua senha atual para vinculá-lo. Se também esqueceu a senha, procure o responsável pela ferramenta.</p>');
+  button('Cadastrar meu e-mail',()=>credentials('email'),panel.querySelector('.access-content'));
+  button('Sei a senha atual e quero alterá-la',()=>credentials('password'),panel.querySelector('.access-content'));
+  button('Voltar',accountBack,panel.querySelector('.access-content'));
+  const form=document.getElementById('access-recover');
+  form.onsubmit=async e=>{
+   e.preventDefault();const submit=form.querySelector('button[type="submit"]'),email=form.elements.email.value.trim().toLowerCase();
+   if(!realEmail(email)){message('Informe um e-mail real que já esteja vinculado à sua conta.');return;}
+   submit.disabled=true;
+   try{auth.languageCode='pt-BR';await auth.sendPasswordResetEmail(email);message('Se este e-mail estiver cadastrado, você receberá o link para escolher uma nova senha. Confira também o spam.',true);}
+   catch(err){if(err.code==='auth/user-not-found')message('Se este e-mail estiver cadastrado, você receberá o link para escolher uma nova senha. Confira também o spam.',true);else errors(err);}
+   finally{submit.disabled=false;}
+  };
+ }
+ function credentials(mode){
+  const changing=mode==='password';
+  show('<h2>'+(changing?'Alterar minha senha':'Cadastrar meu e-mail')+'</h2><p>'+(changing?'Confirme sua senha atual e escolha a nova senha.':'Cadastre um e-mail real para recuperar sua senha. Após confirmar o link recebido, você passará a entrar com esse e-mail; seus dados e perfil serão mantidos.')+'</p><form id="access-credentials"><label>Login ou e-mail atual<input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false"></label><label>Senha atual<input name="currentPassword" type="password" required autocomplete="current-password"></label>'+(changing?'<label>Nova senha<input name="password" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label><label>Confirme a nova senha<input name="confirm" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label>':'<label>E-mail de acesso e recuperação<input name="email" type="email" required autocomplete="email" placeholder="seu@email.com"></label><label>Confirme o e-mail<input name="confirmEmail" type="email" required autocomplete="off" placeholder="Repita seu e-mail"></label>')+'<button type="submit">'+(changing?'Salvar nova senha':'Enviar confirmação de e-mail')+'</button></form>');
+  button('Voltar',accountBack,panel.querySelector('.access-content'));
+  const form=document.getElementById('access-credentials');
+  if(auth.currentUser)form.elements.login.value=auth.currentUser.email;
+  if(!changing&&auth.currentUser){
+   button('Já confirmei o e-mail',async e=>{
+    e.target.disabled=true;
+    try{await auth.currentUser.reload();if(realEmail(auth.currentUser.email)){await auth.currentUser.getIdToken(true);accountBack();}else message('A confirmação ainda não foi concluída. Abra o link recebido no seu e-mail.');}
+    catch(err){errors(err);}finally{e.target.disabled=false;}
+   },panel.querySelector('.access-content'));
+   button('Alterar minha senha',()=>credentials('password'),panel.querySelector('.access-content'));
+   button('Sair',exit,panel.querySelector('.access-content'));
+  }
+  form.onsubmit=async e=>{
+   e.preventDefault();const f=form.elements,submit=form.querySelector('button[type="submit"]');
+   if(changing&&f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}
+   if(changing&&f.password.value===f.currentPassword.value){message('Escolha uma senha diferente da atual.');return;}
+   const email=changing?'':f.email.value.trim().toLowerCase();
+   if(!changing&&(!realEmail(email)||email!==f.confirmEmail.value.trim().toLowerCase())){message('Informe e confirme o mesmo e-mail real.');return;}
+   submit.disabled=true;
+   const secondary=firebase.initializeApp(app.options,'quap-self-service-'+Date.now());
+   let passwordSaved=false;
+   try{
+    const secondaryAuth=secondary.auth();secondaryAuth.languageCode='pt-BR';
+    await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+    const result=await secondaryAuth.signInWithEmailAndPassword(toEmail(f.login.value),f.currentPassword.value);
+    if(changing){
+     await result.user.updatePassword(f.password.value);passwordSaved=true;
+     const flag=secondary.database(app.options.databaseURL).ref('quapAccess/users/'+result.user.uid+'/mustChangePassword');
+     if((await flag.once('value')).val()===true)await flag.set(false);
+     f.currentPassword.value='';f.password.value='';f.confirm.value='';
+     message('Senha alterada com sucesso. Use a nova senha para entrar e confirmar suas ações.',true);
+    }else{
+     await result.user.verifyBeforeUpdateEmail(email);
+     f.currentPassword.value='';
+     message('Enviamos um link de confirmação para o e-mail informado. Confirme o link e depois entre usando esse e-mail e sua senha atual. Antes da confirmação, o acesso anterior continua válido.',true);
+    }
+   }catch(err){if(passwordSaved){f.currentPassword.value='';f.password.value='';f.confirm.value='';message('A senha foi alterada, mas não foi possível concluir a liberação do primeiro acesso. Entre com a nova senha para finalizar.');}else errors(err);}
+   finally{await secondary.auth().signOut().catch(()=>{});await secondary.delete().catch(()=>{});submit.disabled=false;}
+  };
+ }
+ async function resetFromEmail(code){
+  // Keep the one-time code in memory, outside the address bar and browser history.
+  history.replaceState(null,'',location.pathname);
+  show('<h2>Redefinir minha senha</h2><p>Validando seu link de recuperação…</p>');
+  const back=()=>location.replace(location.pathname);
+  try{
+   const email=await auth.verifyPasswordResetCode(code);
+   show('<h2>Redefinir minha senha</h2><p id="access-reset-account"></p><form id="access-email-reset"><label>Nova senha<input name="password" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label><label>Confirme a nova senha<input name="confirm" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label><button type="submit">Salvar nova senha</button></form>');
+   document.getElementById('access-reset-account').textContent='Escolha sua nova senha para '+email+'.';
+   button('Voltar para entrar',back,panel.querySelector('.access-content'));
+   const form=document.getElementById('access-email-reset');
+   form.onsubmit=async e=>{
+    e.preventDefault();const f=form.elements,submit=form.querySelector('button[type="submit"]');
+    if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}
+    submit.disabled=true;
+    try{
+     await auth.confirmPasswordReset(code,f.password.value);
+     form.reset();form.hidden=true;
+     message('Senha redefinida com sucesso. Entre com seu e-mail e a nova senha.',true);
+    }catch(err){errors(err);submit.disabled=false;}
+   };
+  }catch(err){errors(err);button('Solicitar outro link',back,panel.querySelector('.access-content'));}
+ }
+ async function confirmEmailAction(code){
+  history.replaceState(null,'',location.pathname);
+  show('<h2>Confirmar e-mail</h2><p>Validando seu link…</p>');
+  const back=()=>location.replace(location.pathname);
+  try{
+   const action=await auth.checkActionCode(code);
+   show('<h2>Confirmar e-mail</h2><p id="access-email-account"></p>');
+   document.getElementById('access-email-account').textContent='Confirme o endereço '+(action.data.email||'da sua conta')+'. Após a confirmação, utilize o e-mail confirmado para entrar e recuperar sua senha.';
+   const confirm=button('Confirmar e-mail',async()=>{
+    confirm.disabled=true;
+    try{await auth.applyActionCode(code);confirm.hidden=true;message('E-mail confirmado com sucesso. Volte para entrar usando o e-mail confirmado e sua senha.',true);}
+    catch(err){errors(err);confirm.disabled=false;}
+   },panel.querySelector('.access-content'));
+  }catch(err){errors(err);}
+  button('Voltar para entrar',back,panel.querySelector('.access-content'));
  }
  function changePassword(){
   show('<h2>Troque sua senha inicial</h2><p>Defina uma senha com pelo menos 6 caracteres. Pode usar apenas números.</p><form><label>Nova senha<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Confirme a senha<input name="confirm" type="password" minlength="6" required autocomplete="new-password"></label><button type="submit">Salvar nova senha</button></form>');
@@ -138,18 +251,19 @@
  }
  async function manage(){
   if(profile?.role!=='senior'||profile.status!=='approved'||profile.mustChangePassword!==false){message('Apenas o Sênior pode gerenciar integrantes.');return;}
-  show('<h2>Integrantes e solicitações</h2><form id="access-new-user" class="access-new-user"><h3>Novo integrante</h3><label>Login<input name="login" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha inicial<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Perfil<select name="role"><option value="viewer">Visualizador</option><option value="analyst">Analista</option><option value="senior">Sênior</option></select></label><p class="access-field-help">O integrante entra com esta senha e precisa trocá-la no primeiro acesso.</p><button type="submit">Cadastrar integrante</button></form><div id="access-users">Carregando…</div>');
+  show('<h2>Integrantes e solicitações</h2><form id="access-new-user" class="access-new-user"><h3>Novo integrante</h3><label>Identificação do integrante<input name="login" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>E-mail de acesso e recuperação<input name="email" type="email" required autocomplete="email" placeholder="integrante@email.com"></label><label>Senha inicial<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Perfil<select name="role"><option value="viewer">Visualizador</option><option value="analyst">Analista</option><option value="senior">Sênior</option></select></label><p class="access-field-help">O integrante entra com o e-mail e esta senha, precisa trocá-la no primeiro acesso e pode recuperar o acesso por e-mail.</p><button type="submit">Cadastrar integrante</button></form><div id="access-users">Carregando…</div>');
   button('Voltar à ferramenta',()=>activate(profile),panel.querySelector('.access-card'));
   const newUserForm=document.getElementById('access-new-user');
   newUserForm.onsubmit=async e=>{
    e.preventDefault();
    const submit=newUserForm.querySelector('button[type="submit"]');
-   const name=newUserForm.elements.login.value.trim(),password=newUserForm.elements.password.value,role=newUserForm.elements.role.value;
+   const name=newUserForm.elements.login.value.trim(),password=newUserForm.elements.password.value,role=newUserForm.elements.role.value,email=newUserForm.elements.email.value.trim().toLowerCase();
+   if(!realEmail(email)){message('Cadastre um e-mail real para acesso e recuperação de senha.');return;}
    if(!loginPattern.test(name)){message('Login: de 3 a 64 caracteres, com letras, números, ponto, hífen ou sublinhado.');return;}
    if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
    if(!['viewer','analyst','senior'].includes(role))return;
    submit.disabled=true;
-   try{await provisionUser(name,password,role);await manage();message('Integrante '+name+' cadastrado. Informe a senha inicial a ele.');}
+   try{await provisionUser(name,password,role,email);await manage();message('Integrante '+name+' cadastrado. Ele deve entrar com o e-mail cadastrado e a senha inicial.',true);}
    catch(err){errors(err);submit.disabled=false;}
   };
   try{const snapshot=await db.ref('quapAccess/users').once('value'),list=document.getElementById('access-users');list.textContent='';
@@ -178,8 +292,12 @@
   }catch(err){errors(err);}
  }
  function activate(p){
+  if(!realEmail(auth.currentUser?.email||'')){credentials('email');return;}
   panel.hidden=true;root.style.display='';root.inert=false;bar.hidden=false;bar.textContent=p.login+' · '+labels[p.role]+' ';
-  if(p.role==='senior')button('Gerenciar integrantes',manage,bar);button('Sair',exit,bar);
+  if(p.role==='senior')button('Gerenciar integrantes',manage,bar);
+  button('Alterar minha senha',()=>credentials('password'),bar);
+  button('Cadastrar meu e-mail',()=>credentials('email'),bar);
+  button('Sair',exit,bar);
   document.body.dataset.quapRole=p.role;refreshWriteButtons();readyResolve();
  }
  function accept(p){
@@ -192,8 +310,10 @@
   else activate(p);
  }
  window.__quapCanWrite=()=>profile?.status==='approved'&&!profile.mustChangePassword&&['senior','analyst'].includes(profile.role);
+ if(emailResetActive)resetFromEmail(actionParams.get('oobCode'));
+ if(emailActionActive)confirmEmailAction(actionParams.get('oobCode'));
  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(()=>auth.onAuthStateChanged(user=>{
-  unwatch();if(!user){profile=null;login();return;}
+  unwatch();if(emailResetActive||emailActionActive)return;if(!user){profile=null;login();return;}
   const ref=db.ref('quapAccess/users/'+user.uid),handler=s=>accept(s.val());ref.on('value',handler,error=>{root.inert=true;root.style.display='none';show('<p>Não foi possível confirmar sua permissão. Entre novamente.</p>');button('Sair',exit,panel.querySelector('.access-card'));errors(error);});unwatch=()=>ref.off('value',handler);
  })).catch(errors);
  const mutationLabel=/salvar|excluir|remover|adicionar|novo|nova|importar|editar|cadastrar|aplicar|confirmar|registrar/i;
