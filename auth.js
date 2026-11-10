@@ -27,15 +27,18 @@
   addPasswordToggles();
  }
 
- function addPasswordToggles(){
-  for(const input of panel.querySelectorAll('input[type="password"]')){
+ let passwordFieldId=0;
+ function addPasswordToggles(scope=panel){
+  for(const input of scope.querySelectorAll('input[type="password"]')){
+   if(input.dataset.quapPasswordToggle)continue;
+   input.dataset.quapPasswordToggle='true';
    let wrap=input.parentElement;
-   if(!wrap.classList.contains('access-input-wrap')){
+   if(!wrap.classList.contains('access-password-wrap')){
     wrap=document.createElement('div');wrap.className='access-password-wrap';
     input.before(wrap);wrap.append(input);
    }
    wrap.classList.add('access-password-wrap');
-   input.id='access-'+input.name;
+   if(!input.id)input.id='access-password-'+(++passwordFieldId);
    const toggle=document.createElement('button');toggle.type='button';toggle.className='access-password-toggle';
    toggle.setAttribute('aria-controls',input.id);
    const render=()=>{
@@ -114,6 +117,7 @@
    dialog.querySelector('form').onsubmit=e=>{e.preventDefault();finish(e.target.elements.password.value);};
    dialog.querySelector('button[type="button"]').onclick=()=>finish(null);
    dialog.oncancel=e=>{e.preventDefault();finish(null);};
+   addPasswordToggles(dialog);
    dialog.showModal();dialog.querySelector('input').focus();
   });
   if(password===null)throw Object.assign(new Error(),{code:'action/cancelled'});
@@ -167,7 +171,7 @@
        catch(err){errors(err);e.target.disabled=false;}
       },reset);
       button('Cancelar',()=>{reset.remove();resetButton.hidden=false;},reset);
-      row.append(reset);input.focus();
+      row.append(reset);addPasswordToggles(reset);input.focus();
      },row);
     }list.append(row);
    });

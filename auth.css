@@ -166,14 +166,15 @@
 }
 
 .access-password-wrap { position: relative; }
-#quap-access .access-password-wrap input { padding-right: 50px; }
-#quap-access .access-password-toggle {
+:is(#quap-access, dialog.quap-confirm) .access-password-wrap input { padding-right: 50px; }
+:is(#quap-access, dialog.quap-confirm) .access-password-toggle {
   position: absolute; top: 2px; right: 2px;
   display: flex; align-items: center; justify-content: center;
   width: 44px; height: 43px; padding: 10px; margin: 0;
-  border: 0; border-radius: 7px; background: transparent; color: #607889;
+  border: 0; border-radius: 7px; background: transparent; color: #607889; cursor: pointer;
 }
-#quap-access .access-password-toggle:hover { background: #e8f0f1; color: #11796f; }
+:is(#quap-access, dialog.quap-confirm) .access-password-toggle:hover { background: #e8f0f1; color: #11796f; }
+:is(#quap-access, dialog.quap-confirm) .access-password-toggle:focus-visible { outline: 3px solid #32a79355; outline-offset: 1px; }
 .access-password-toggle svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.7; }
 
 /* Senior password confirmation dialog (lives outside #quap-access) */
@@ -190,6 +191,8 @@ dialog.quap-confirm input {
   border: 1px solid #dbe3e9; border-radius: 9px; background: #fafbfc; color: #142c42; font: inherit;
 }
 dialog.quap-confirm input:focus { outline: 0; border-color: #258f83; box-shadow: 0 0 0 3px #258f8320; }
+dialog.quap-confirm .access-password-wrap { margin-top: 8px; }
+dialog.quap-confirm .access-password-wrap input { margin-top: 0; box-sizing: border-box; }
 .quap-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
 .quap-confirm-actions button {
   padding: 10px 16px; border-radius: 9px; border: 1px solid #163c50; cursor: pointer; font: 600 12px/1.4 'Segoe UI', system-ui, sans-serif;
