@@ -4,7 +4,7 @@ A aplicação usa Firebase Authentication (Email/Senha) e Realtime Database no p
 
 | Perfil | Permissões |
 |---|---|
-| Sênior | Todas as consultas e alterações operacionais; aprovar, bloquear e definir analistas ou visualizadores |
+| Sênior | Todas as consultas e alterações operacionais; cadastrar usuários, aprovar, bloquear e definir perfis Sênior, Analista ou Visualizador |
 | Analista | Consultar, inserir, alterar e excluir dados operacionais |
 | Visualizador | Consultar dados; gravações negadas no banco |
 | Pendente/bloqueado | Sem acesso aos registros operacionais |
@@ -27,8 +27,12 @@ firebase deploy --only auth,database,hosting --project quapsese
 
 As regras são exclusivas do projeto `quapsese`. Não publicar estas regras no banco compartilhado `controlmaterials`. Dados operacionais da versão anterior foram copiados para o mesmo caminho relativo no banco `quapsese`, mantendo a cópia original. A versão antiga que usa `controlmaterials` precisa ser substituída nos endereços de distribuição; sua cópia de dados e suas regras públicas não foram alteradas por afetarem um projeto compartilhado.
 
-Identificadores internos terminam em `@users.quapsese.invalid`; são chaves de login, sem caixa postal. Não há recuperação por e-mail nesta versão. Seniores existentes não podem ser rebaixados, bloqueados ou criados pela tela de gestão; isso requer administração do projeto.
+Identificadores internos terminam em `@users.quapsese.invalid`; são chaves de login, sem caixa postal. Não há recuperação por e-mail nesta versão. O Sênior pode cadastrar usuários diretamente e promover integrantes a Sênior. Seniores existentes não podem ser rebaixados ou bloqueados pela tela de gestão. O cadastro público foi removido e a criação de perfis no banco é exclusiva de seniores aprovados. As alterações solicitam novamente a senha do Sênior na interface.
 
-## Verificação
+## Publicação da alteração de perfis
+
+É necessário publicar `firebase-database.rules.json` no projeto `quapsese`, além de atualizar `auth.js` no endereço usado pela equipe. Alterar apenas o GitHub não publica regras no Firebase. O Firebase Authentication pode aceitar contas sem perfil via API; elas não recebem acesso à ferramenta.
+
+## Verificação anterior
 
 Regras compiladas e publicadas. Testes reais com usuários temporários cobrem acesso anônimo, primeiro acesso dos seniores, solicitação pendente, negação de autoaprovação/autopromoção, leitura de visualizador, negação de sua gravação direta, gravação por analista e sênior, aprovação e bloqueio e revogação com sessão aberta. Os usuários temporários foram removidos. Login e tela de troca inicial também foram verificados no navegador, sem erros JavaScript.

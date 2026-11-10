@@ -53,6 +53,8 @@
  function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.className='access-secondary';b.onclick=action;parent.append(b);return b;}
  function exit(){auth.signOut().finally(()=>location.reload());}
  const errorMessages={
+  'action/cancelled':'Alteração cancelada.',
+  'PERMISSION_DENIED':'Seu perfil não permite esta ação ou as regras de acesso ainda precisam ser atualizadas.',
   'auth/too-many-requests':'Muitas tentativas. Aguarde e tente novamente.',
   'auth/email-already-in-use':'Este login já está em uso.',
   'auth/weak-password':'Use pelo menos 6 caracteres. Pode usar apenas números.',
@@ -76,6 +78,8 @@
  }
  // Uses a secondary app instance so creating the account does not replace the senior's session.
  async function provisionUser(name,password,role){
+  await confirmSenior();
+  if(!['viewer','analyst','senior'].includes(role))throw new Error('Perfil inválido.');
   const secondary=firebase.initializeApp(app.options,'quap-provision-'+Date.now());
   try{
    const secondaryAuth=secondary.auth();
@@ -91,16 +95,30 @@
    await secondaryAuth.signOut();
   }finally{await secondary.delete().catch(()=>{});}
  }
- function login(register=false){
-  show('<p class="access-step">'+(register?'JUNTE-SE À EQUIPE':'BEM-VINDO DE VOLTA')+'</p><h2>'+(register?'Solicitar acesso':'Entrar')+'</h2><p class="access-description">'+(register?'Crie seu acesso. Um sênior avaliará sua solicitação.':'Entre com suas credenciais para acessar a plataforma.')+'</p><form id="access-form"><label>Login<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></div></label><label>Senha<div class="access-input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input name="password" type="password" required autocomplete="'+(register?'new-password':'current-password')+'" placeholder="'+(register?'Crie uma senha':'Digite sua senha')+'"></div></label>'+(register?'<p class="access-field-help">Use pelo menos 6 caracteres. Pode usar apenas números.</p>':'')+'<button type="submit">'+(register?'Enviar solicitação':'Entrar')+'<span aria-hidden="true">↗</span></button></form><div class="access-divider"><span>'+(register?'Já faz parte da equipe?':'Ainda não tem uma conta?')+'</span></div>',register?'register':'login');
-  button(register?'Voltar ao login':'Solicitar novo acesso',()=>login(!register),panel.querySelector('.access-content'));
-  panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,b=form.querySelector('button[type="submit"]');b.disabled=true;
-   try{const name=form.elements.login.value.trim(),password=form.elements.password.value,email=name.toLowerCase()+'@users.quapsese.invalid';
-    if(register){if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
-     const result=await auth.createUserWithEmailAndPassword(email,password);
-     await db.ref('quapAccess/users/'+result.user.uid).set({login:name,role:'viewer',status:'pending',mustChangePassword:false});
-    }else await auth.signInWithEmailAndPassword(email,password);
-   }catch(err){errors(err);}finally{b.disabled=false;}
+ async function confirmSenior(){
+  const user=auth.currentUser;
+  if(!user)throw Object.assign(new Error(),{code:'functions/unauthenticated'});
+  const current=(await db.ref('quapAccess/users/'+user.uid).once('value')).val();
+  if(current?.role!=='senior'||current.status!=='approved'||current.mustChangePassword!==false)throw Object.assign(new Error(),{code:'functions/permission-denied'});
+  const password=await new Promise(resolve=>{
+   const dialog=document.createElement('dialog');
+   dialog.innerHTML='<form method="dialog"><h3>Confirme sua senha de Sênior</h3><label>Senha<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Confirmar</button><button type="button">Cancelar</button></form>';
+   document.body.append(dialog);
+   const finish=value=>{dialog.close();dialog.remove();resolve(value);};
+   dialog.querySelector('form').onsubmit=e=>{e.preventDefault();finish(e.target.elements.password.value);};
+   dialog.querySelector('button[type="button"]').onclick=()=>finish(null);
+   dialog.oncancel=e=>{e.preventDefault();finish(null);};
+   dialog.showModal();dialog.querySelector('input').focus();
+  });
+  if(password===null)throw Object.assign(new Error(),{code:'action/cancelled'});
+  await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email,password));
+ }
+ function login(){
+  show('<p class="access-step">BEM-VINDO DE VOLTA</p><h2>Entrar</h2><p class="access-description">Entre com suas credenciais para acessar a plataforma.</p><form id="access-form"><label>Login<input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha<input name="password" type="password" required autocomplete="current-password" placeholder="Digite sua senha"></label><button type="submit">Entrar</button></form><p class="access-field-help">Ainda não tem uma conta? Solicite o cadastro a um Sênior. Apenas esse perfil pode cadastrar usuários na ferramenta.</p>','login');
+  panel.querySelector('form').onsubmit=async e=>{
+   e.preventDefault();const form=e.target,b=form.querySelector('button[type="submit"]');b.disabled=true;
+   try{await auth.signInWithEmailAndPassword(toEmail(form.elements.login.value.trim()),form.elements.password.value);}
+   catch(err){errors(err);}finally{b.disabled=false;}
   };
  }
  function changePassword(){
@@ -109,7 +127,8 @@
   panel.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button[type="submit"]');if(f.password.value!==f.confirm.value){message('As senhas precisam ser iguais.');return;}b.disabled=true;try{if(f.password.value.length<6) {message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;} await auth.currentUser.updatePassword(f.password.value);await db.ref('quapAccess/users/'+auth.currentUser.uid+'/mustChangePassword').set(false);await auth.currentUser.getIdToken(true);}catch(err){errors(err);}finally{b.disabled=false;}};
  }
  async function manage(){
-  show('<h2>Integrantes e solicitações</h2><form id="access-new-user" class="access-new-user"><h3>Novo integrante</h3><label>Login<input name="login" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha inicial<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Perfil<select name="role"><option value="viewer">Visualizador</option><option value="analyst">Analista</option></select></label><p class="access-field-help">O integrante entra com esta senha e precisa trocá-la no primeiro acesso.</p><button type="submit">Cadastrar integrante</button></form><div id="access-users">Carregando…</div>');
+  if(profile?.role!=='senior'||profile.status!=='approved'||profile.mustChangePassword!==false){message('Apenas o Sênior pode gerenciar integrantes.');return;}
+  show('<h2>Integrantes e solicitações</h2><form id="access-new-user" class="access-new-user"><h3>Novo integrante</h3><label>Login<input name="login" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="nome.sobrenome" pattern="[A-Za-z0-9._-]{3,64}"></label><label>Senha inicial<input name="password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>Perfil<select name="role"><option value="viewer">Visualizador</option><option value="analyst">Analista</option><option value="senior">Sênior</option></select></label><p class="access-field-help">O integrante entra com esta senha e precisa trocá-la no primeiro acesso.</p><button type="submit">Cadastrar integrante</button></form><div id="access-users">Carregando…</div>');
   button('Voltar à ferramenta',()=>activate(profile),panel.querySelector('.access-card'));
   const newUserForm=document.getElementById('access-new-user');
   newUserForm.onsubmit=async e=>{
@@ -118,15 +137,15 @@
    const name=newUserForm.elements.login.value.trim(),password=newUserForm.elements.password.value,role=newUserForm.elements.role.value;
    if(!loginPattern.test(name)){message('Login: de 3 a 64 caracteres, com letras, números, ponto, hífen ou sublinhado.');return;}
    if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
-   if(!['viewer','analyst'].includes(role))return;
+   if(!['viewer','analyst','senior'].includes(role))return;
    submit.disabled=true;
    try{await provisionUser(name,password,role);await manage();message('Integrante '+name+' cadastrado. Informe a senha inicial a ele.');}
    catch(err){errors(err);submit.disabled=false;}
   };
   try{const snapshot=await db.ref('quapAccess/users').once('value'),list=document.getElementById('access-users');list.textContent='';
    snapshot.forEach(s=>{const u=s.val(),row=document.createElement('div');row.className='access-user';const title=document.createElement('p');title.textContent=u.login+' · '+(labels[u.role]||u.role)+' · '+({pending:'Aguardando aprovação',approved:'Aprovado',blocked:'Bloqueado'}[u.status]||u.status);row.append(title);
-    if(u.role!=='senior'){const select=document.createElement('select');for(const role of ['viewer','analyst']){const o=document.createElement('option');o.value=role;o.textContent=labels[role];select.append(o);}select.value=u.role;row.append(select);
-     const update=status=>async e=>{e.target.disabled=true;try{await db.ref('quapAccess/users/'+s.key).update({role:select.value,status});await manage();}catch(err){errors(err);e.target.disabled=false;}};
+    if(u.role!=='senior'){const select=document.createElement('select');for(const role of ['viewer','analyst','senior']){const o=document.createElement('option');o.value=role;o.textContent=labels[role];select.append(o);}select.value=u.role;row.append(select);
+     const update=status=>async e=>{e.target.disabled=true;try{await confirmSenior();await db.ref('quapAccess/users/'+s.key).update({role:select.value,status});await manage();}catch(err){errors(err);e.target.disabled=false;}};
      button(u.status==='pending'?'Aprovar':'Salvar perfil',update('approved'),row);button('Bloquear',update('blocked'),row);
      const resetButton=button('Redefinir senha',()=>{
       resetButton.hidden=true;
@@ -138,7 +157,7 @@
        const password=input.value;
        if(password.length<6){message('Use pelo menos 6 caracteres. Pode usar apenas números.');return;}
        e.target.disabled=true;
-       try{await callFunction('quapResetPassword',{uid:s.key,password});await manage();message('Senha de '+u.login+' redefinida. A troca será exigida no próximo acesso.');}
+       try{await confirmSenior();await callFunction('quapResetPassword',{uid:s.key,password});await manage();message('Senha de '+u.login+' redefinida. A troca será exigida no próximo acesso.');}
        catch(err){errors(err);e.target.disabled=false;}
       },reset);
       button('Cancelar',()=>{reset.remove();resetButton.hidden=false;},reset);
