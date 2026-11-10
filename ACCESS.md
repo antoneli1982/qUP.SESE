@@ -37,7 +37,9 @@ Na entrada estão disponíveis **Esqueci minha senha**, **Alterar minha senha** 
 
 **Esqueci minha senha** usa `sendPasswordResetEmail`. A página valida o código do link com `verifyPasswordResetCode` e salva a senha com `confirmPasswordReset`. Links de verificação e alteração de e-mail são validados com `checkActionCode` e confirmados com `applyActionCode`. O código é removido da barra de endereço ao abrir a página. A resposta de recuperação não revela se uma conta existe. Senhas e códigos de recuperação não são gravados no projeto, banco de perfis ou armazenamento local.
 
-No Firebase Authentication, o URL acionável personalizado dos modelos deve apontar para `https://antoneli1982.github.io/qUP.SESE/`. O envio de e-mails reais, sua entrega e a confirmação das credenciais devem ser feitos pelo próprio usuário. Uma conta antiga sem senha conhecida nem e-mail cadastrado ainda exige recuperação administrativa; informar um e-mail arbitrário não libera acesso.
+O projeto recusou a alteração do URL acionável com `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`; permanece o formulário oficial em `https://quapsese.firebaseapp.com/__/auth/action`. Em **Esqueci minha senha → Já recebi o link**, o usuário pode colar o link oficial completo para validar o código e escolher a senha dentro da ferramenta. Somente URLs HTTPS do projeto e da ferramenta são aceitas, e o Firebase valida o código antes de liberar o formulário. Se o provedor permitir a personalização posteriormente, o endereço preparado é `https://antoneli1982.github.io/qUP.SESE/`.
+
+O envio de e-mails reais, sua entrega e a confirmação das credenciais devem ser feitos pelo próprio usuário. Uma conta antiga sem senha conhecida nem e-mail cadastrado ainda exige recuperação administrativa; informar um e-mail arbitrário não libera acesso.
 
 ## Publicação das regras de perfis
 

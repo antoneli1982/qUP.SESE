@@ -4,7 +4,7 @@
  const auth=app.auth(),db=app.database(app.options.databaseURL);
  auth.languageCode='pt-BR';
  const actionParams=new URLSearchParams(location.search);
- const emailResetActive=actionParams.get('mode')==='resetPassword'&&!!actionParams.get('oobCode');
+ let emailResetActive=actionParams.get('mode')==='resetPassword'&&!!actionParams.get('oobCode');
  const emailActionActive=['verifyEmail','verifyAndChangeEmail','recoverEmail'].includes(actionParams.get('mode'))&&!!actionParams.get('oobCode');
  let profile=null,unwatch=()=>{},readyResolve=window.__quapAccessResolve;
 
@@ -150,6 +150,7 @@
  function forgotPassword(){
   show('<h2>Esqueci minha senha</h2><p>Informe o e-mail cadastrado na sua conta para receber o link de redefinição.</p><form id="access-recover"><label>E-mail cadastrado<input name="email" type="email" required autocomplete="email" placeholder="seu@email.com"></label><button type="submit">Enviar link de recuperação</button></form><p class="access-field-help">Ainda não cadastrou seu e-mail? É necessário confirmar sua senha atual para vinculá-lo. Se também esqueceu a senha, procure o responsável pela ferramenta.</p>');
   button('Cadastrar meu e-mail',()=>credentials('email'),panel.querySelector('.access-content'));
+  button('Já recebi o link',pasteRecoveryLink,panel.querySelector('.access-content'));
   button('Sei a senha atual e quero alterá-la',()=>credentials('password'),panel.querySelector('.access-content'));
   button('Voltar',accountBack,panel.querySelector('.access-content'));
   const form=document.getElementById('access-recover');
@@ -160,6 +161,20 @@
    try{auth.languageCode='pt-BR';await auth.sendPasswordResetEmail(email);message('Se este e-mail estiver cadastrado, você receberá o link para escolher uma nova senha. Confira também o spam.',true);}
    catch(err){if(err.code==='auth/user-not-found')message('Se este e-mail estiver cadastrado, você receberá o link para escolher uma nova senha. Confira também o spam.',true);else errors(err);}
    finally{submit.disabled=false;}
+  };
+ }
+ function pasteRecoveryLink(){
+  show('<h2>Usar link de recuperação</h2><p>Copie o link completo do e-mail de recuperação e cole abaixo. Você escolherá a nova senha aqui na ferramenta.</p><form id="access-recovery-link"><label>Link recebido por e-mail<input name="link" type="url" required autocomplete="off" spellcheck="false" placeholder="https://…"></label><button type="submit">Validar link</button></form>');
+  button('Voltar',forgotPassword,panel.querySelector('.access-content'));
+  const form=document.getElementById('access-recovery-link');
+  form.onsubmit=e=>{
+   e.preventDefault();
+   try{
+    const link=new URL(form.elements.link.value.trim());
+    const projectLink=link.protocol==='https:'&&((link.hostname==='quapsese.firebaseapp.com'&&link.pathname==='/__/auth/action')||(link.hostname==='antoneli1982.github.io'&&link.pathname==='/qUP.SESE/'));
+    if(!projectLink||link.searchParams.get('mode')!=='resetPassword'||!link.searchParams.get('oobCode')){message('Cole o link completo de redefinição recebido para esta ferramenta.');return;}
+    const code=link.searchParams.get('oobCode');form.reset();emailResetActive=true;unwatch();resetFromEmail(code);
+   }catch{message('O link não é válido. Copie o endereço completo recebido por e-mail.');}
   };
  }
  function credentials(mode){
