@@ -20,7 +20,7 @@
    </aside>
    <div class="access-card">
     <div class="access-card-brand"><img src="logo-original.png" alt="Cérebro sendo abastecido, logo original do qUAP" width="36" height="36"><span>qUAP</span><img class="access-sese-logo" src="logo-sese.png" alt="SESÉ" width="76" height="23"><span class="access-restricted"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>Área restrita</span></div>
-    <div class="access-content">`+html+`<p id="access-message" role="status" aria-live="polite"></p></div>
+    <div class="access-content"><p id="access-message" role="status" aria-live="polite"></p>`+html+`</div>
     <div class="access-card-footer">Pessoas e competências, na mesma conexão.</div>
    </div>
   </div>`;
@@ -49,7 +49,7 @@
    render();wrap.append(toggle);
   }
  }
- function message(text){const el=document.getElementById('access-message');if(el)el.textContent=text;}
+ function message(text){const el=document.getElementById('access-message');if(el){el.textContent=text;el.scrollIntoView({block:'center',behavior:'smooth'});}}
  function button(text,action,parent){const b=document.createElement('button');b.textContent=text;b.type='button';b.className='access-secondary';b.onclick=action;parent.append(b);return b;}
  function exit(){auth.signOut().finally(()=>location.reload());}
  const errorMessages={
@@ -57,6 +57,12 @@
   'PERMISSION_DENIED':'Seu perfil não permite esta ação ou as regras de acesso ainda precisam ser atualizadas.',
   'auth/too-many-requests':'Muitas tentativas. Aguarde e tente novamente.',
   'auth/email-already-in-use':'Este login já está em uso.',
+  'auth/wrong-password':'Senha de Sênior incorreta.',
+  'auth/invalid-credential':'Senha de Sênior incorreta.',
+  'auth/invalid-login-credentials':'Senha de Sênior incorreta.',
+  'auth/network-request-failed':'Falha de conexão. Verifique a internet e tente novamente.',
+  'auth/operation-not-allowed':'O login por e-mail/senha não está habilitado no Firebase.',
+  'auth/invalid-email':'Login inválido.',
   'auth/weak-password':'Use pelo menos 6 caracteres. Pode usar apenas números.',
   'functions/permission-denied':'Seu perfil não permite esta ação.',
   'functions/not-found':'Integrante não encontrado ou função de senha não publicada no Firebase.',
@@ -64,7 +70,7 @@
   'functions/invalid-argument':'Dados inválidos. Confira a senha informada.',
   'script-load-failed':'Não foi possível carregar o módulo de senhas. Verifique a conexão.'
  };
- function errors(error){console.error('Falha no acesso:',error.code||error.message);message(errorMessages[error.code||error.message]||'Não foi possível concluir. Confira os dados ou tente novamente.');}
+ function errors(error){console.error('Falha no acesso:',error.code||error.message,error);message(errorMessages[error.code||error.message]||'Não foi possível concluir. Confira os dados ou tente novamente.');}
 
  // User provisioning and password reset (senior only).
  const FUNCTIONS_REGION='southamerica-east1';
@@ -101,8 +107,8 @@
   const current=(await db.ref('quapAccess/users/'+user.uid).once('value')).val();
   if(current?.role!=='senior'||current.status!=='approved'||current.mustChangePassword!==false)throw Object.assign(new Error(),{code:'functions/permission-denied'});
   const password=await new Promise(resolve=>{
-   const dialog=document.createElement('dialog');
-   dialog.innerHTML='<form method="dialog"><h3>Confirme sua senha de Sênior</h3><label>Senha<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Confirmar</button><button type="button">Cancelar</button></form>';
+   const dialog=document.createElement('dialog');dialog.className='quap-confirm';
+   dialog.innerHTML='<form method="dialog"><h3>Confirme sua senha de Sênior</h3><label>Senha<input name="password" type="password" autocomplete="current-password" required></label><div class="quap-confirm-actions"><button type="button">Cancelar</button><button type="submit">Confirmar</button></div></form>';
    document.body.append(dialog);
    const finish=value=>{dialog.close();dialog.remove();resolve(value);};
    dialog.querySelector('form').onsubmit=e=>{e.preventDefault();finish(e.target.elements.password.value);};

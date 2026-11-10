@@ -124,7 +124,7 @@
 #quap-access .access-secondary:hover { background: #f5f8fa; border-color: #bdced6; }
 .access-card-footer { margin-top: 34px; padding-top: 17px; border-top: 1px solid #edf1f3; color: #8c9ba7; text-align: center; font-size: 9px; }
 .access-field-help { margin: -9px 0 18px; color: var(--access-muted); font-size: 10px; }
-#access-message { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; color: #a43333; background: #fff3f2; font-size: 12px; }
+#access-message { margin: 0 0 16px; padding: 10px 12px; border-radius: 8px; color: #a43333; background: #fff3f2; font-size: 12px; }
 #access-message:empty { display: none; }
 #quap-access[data-mode='account'] .access-content > p:not(#access-message) { margin: 14px 0 24px; color: var(--access-muted); font-size: 13px; line-height: 1.7; }
 #quap-access[data-mode='account'] form + .access-secondary { margin-top: 14px; }
@@ -175,3 +175,24 @@
 }
 #quap-access .access-password-toggle:hover { background: #e8f0f1; color: #11796f; }
 .access-password-toggle svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.7; }
+
+/* Senior password confirmation dialog (lives outside #quap-access) */
+dialog.quap-confirm {
+  position: fixed; inset: 0; margin: auto; width: min(92vw, 380px); padding: 24px;
+  border: 1px solid #dce5ea; border-radius: 14px; background: #fff; color: #142c42;
+  box-shadow: 0 30px 80px -20px #17334960; font: 14px/1.5 'Segoe UI', system-ui, sans-serif;
+}
+dialog.quap-confirm::backdrop { background: #0c263799; }
+dialog.quap-confirm h3 { margin: 0 0 16px; font-size: 17px; font-weight: 650; color: #142c42; }
+dialog.quap-confirm label { display: block; font-size: 12px; font-weight: 600; color: #344a5d; }
+dialog.quap-confirm input {
+  display: block; width: 100%; min-height: 44px; margin-top: 8px; padding: 10px 12px;
+  border: 1px solid #dbe3e9; border-radius: 9px; background: #fafbfc; color: #142c42; font: inherit;
+}
+dialog.quap-confirm input:focus { outline: 0; border-color: #258f83; box-shadow: 0 0 0 3px #258f8320; }
+.quap-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.quap-confirm-actions button {
+  padding: 10px 16px; border-radius: 9px; border: 1px solid #163c50; cursor: pointer; font: 600 12px/1.4 'Segoe UI', system-ui, sans-serif;
+}
+.quap-confirm-actions button[type='submit'] { background: #163c50; color: #fff; }
+.quap-confirm-actions button[type='button'] { background: #fff; color: #38566a; border-color: #dce5ea; }
