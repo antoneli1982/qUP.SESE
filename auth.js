@@ -307,11 +307,10 @@
   }catch(err){errors(err);}
  }
  function activate(p){
-  if(!realEmail(auth.currentUser?.email||'')){credentials('email');return;}
   panel.hidden=true;root.style.display='';root.inert=false;bar.hidden=false;bar.textContent=p.login+' · '+labels[p.role]+' ';
   if(p.role==='senior')button('Gerenciar integrantes',manage,bar);
   button('Alterar minha senha',()=>credentials('password'),bar);
-  button('Cadastrar meu e-mail',()=>credentials('email'),bar);
+  button(realEmail(auth.currentUser?.email||'')?'Alterar meu e-mail':'Cadastrar meu e-mail',()=>credentials('email'),bar);
   button('Sair',exit,bar);
   document.body.dataset.quapRole=p.role;refreshWriteButtons();readyResolve();
  }

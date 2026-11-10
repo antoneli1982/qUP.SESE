@@ -31,7 +31,7 @@ Contas antigas usam identificadores internos em `@users.quapsese.invalid`, sem c
 
 ## Senha e recuperação por e-mail
 
-Novos integrantes devem ter um e-mail real cadastrado pelo Sênior; o Firebase Authentication usa esse endereço para entrar e recuperar a senha. A identificação do integrante continua no perfil, sem publicar o e-mail em diretórios de login. Contas antigas ainda entram pelo login anterior, mas precisam cadastrar e confirmar um e-mail antes de usar a ferramenta.
+Novos integrantes devem ter um e-mail real cadastrado pelo Sênior; o Firebase Authentication usa esse endereço para entrar e recuperar a senha. A identificação do integrante continua no perfil, sem publicar o e-mail em diretórios de login. Contas antigas sem e-mail real continuam entrando pelo login anterior, sem bloquear o acesso ao cadastro ou à ferramenta. A confirmação de e-mail não é solicitada a cada acesso.
 
 Na entrada estão disponíveis **Esqueci minha senha**, **Alterar minha senha** e **Cadastrar meu e-mail**. A troca de senha exige autenticação com a senha atual, em uma sessão separada que não troca o usuário da ferramenta. O cadastro de e-mail exige senha atual e verificação do endereço via `verifyBeforeUpdateEmail`; o endereço de acesso muda somente após confirmar o link recebido. Após a confirmação, entrar com o e-mail, em vez da antiga identificação.
 
