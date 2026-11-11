@@ -12,7 +12,7 @@ html[data-theme=colorful] {
   --secondary: #fceaf3;
   --secondary-foreground: #81365e;
   --muted: #f3edf9;
-  --muted-foreground: #6b5b7c;
+  --muted-foreground: #51425f;
   --accent: #daf5ef;
   --accent-foreground: #17695e;
   --border: #e3d6ef;
@@ -47,11 +47,29 @@ html[data-theme=colorful] .topbar { background: linear-gradient(100deg,#fff,#fce
 html[data-theme=colorful] .sese-scroll-toolbar { background: #f3edf9; border-color: #e3d6ef; }
 html[data-theme=colorful] .sese-scroll-toolbar button { color: #50306f; border-color: #d7c5e6; }
 html[data-theme=colorful] .sese-scroll-toolbar button:hover:not(:disabled) { background: #daf5ef; border-color: #238577; }
-html[data-theme=colorful] .sese-poly-sheet { --poly-head: #f3edf9; --poly-accent: #7440b5; --poly-accent-soft: #fceaf3; --poly-ink: #332746; --poly-muted: #6b5b7c; --poly-line: #e3d6ef; }
+html[data-theme=colorful] .sese-poly-sheet { --poly-head: #f3edf9; --poly-accent: #7440b5; --poly-accent-soft: #fceaf3; --poly-ink: #332746; --poly-muted: #51425f; --poly-line: #e3d6ef; }
 select.theme-toggle { cursor: pointer; min-height: 36px; max-width: 125px; }
 select.theme-toggle:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 select.theme-toggle option { background: var(--card); color: var(--foreground); }
 html[data-theme=colorful] .brand { color: #50306f; }
 html[data-theme=colorful] .brand small,
-html[data-theme=colorful] .version { color: #6b5b7c; }
+html[data-theme=colorful] .version { color: #51425f; }
 html[data-theme=colorful] .brand-icon { color: #7440b5; background: #e4d3f3; }
+
+/* Contrast corrections for pale surfaces in the colorful theme. */
+html[data-theme=colorful] .nav-heading,
+html[data-theme=colorful] .side-note,
+html[data-theme=colorful] .side-note p,
+html[data-theme=colorful] .side-note svg,
+html[data-theme=colorful] .demo-button { color: #50306f; }
+html[data-theme=colorful] .footer-dot { color: #655171; }
+html[data-theme=colorful] input::placeholder,
+html[data-theme=colorful] textarea::placeholder { color: #655171; opacity: 1; }
+html[data-theme=colorful] .sese-sector-link,
+html[data-theme=colorful] .sese-people-button,
+html[data-theme=colorful] .sese-people-avatar,
+html[data-theme=colorful] .sese-poly-top-button,
+html[data-theme=colorful] .sese-poly-open-arrow,
+html[data-theme=colorful] .sese-sort-toggle button.active,
+html[data-theme=colorful] .sese-batch-add { color: #613294; }
+html[data-theme=colorful] .sese-batch-list li.is-done .sese-people-avatar { color: #17695e; }
