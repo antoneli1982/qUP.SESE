@@ -11,7 +11,13 @@
  const root=document.getElementById('root');
  const panel=document.createElement('section');panel.id='quap-access';
  document.body.append(panel);
- const bar=document.createElement('aside');bar.id='quap-account';document.body.append(bar);
+ const bar=document.createElement('aside');bar.id='quap-account';bar.setAttribute('aria-label','Minha conta');
+ function placeAccountMenu(){
+  const hosts=[...document.querySelectorAll('[data-account-menu-host]')];
+  const host=hosts.find(item=>item.closest('[role=dialog]'))||hosts[0];
+  if(host&&bar.parentElement!==host)host.append(bar);
+ }
+ new MutationObserver(placeAccountMenu).observe(document.body,{childList:true,subtree:true});
  const labels={senior:'Sênior',analyst:'Analista',viewer:'Visualizador'};
  function show(html,mode='account'){
   root.inert=true;root.style.display='none';bar.hidden=true;panel.hidden=false;panel.dataset.mode=mode;
@@ -307,7 +313,7 @@
   }catch(err){errors(err);}
  }
  function activate(p){
-  panel.hidden=true;root.style.display='';root.inert=false;bar.hidden=false;bar.textContent=p.login+' · '+labels[p.role]+' ';
+  panel.hidden=true;root.style.display='';root.inert=false;bar.hidden=false;bar.textContent='';const identity=document.createElement('p');identity.className='account-identity';identity.textContent=p.login+' · '+labels[p.role];bar.append(identity);placeAccountMenu();
   if(p.role==='senior')button('Gerenciar integrantes',manage,bar);
   button('Alterar minha senha',()=>credentials('password'),bar);
   button(realEmail(auth.currentUser?.email||'')?'Alterar meu e-mail':'Cadastrar meu e-mail',()=>credentials('email'),bar);
@@ -331,8 +337,8 @@
   const ref=db.ref('quapAccess/users/'+user.uid),handler=s=>accept(s.val());ref.on('value',handler,error=>{root.inert=true;root.style.display='none';show('<p>Não foi possível confirmar sua permissão. Entre novamente.</p>');button('Sair',exit,panel.querySelector('.access-card'));errors(error);});unwatch=()=>ref.off('value',handler);
  })).catch(errors);
  const mutationLabel=/salvar|excluir|remover|adicionar|novo|nova|importar|editar|cadastrar|aplicar|confirmar|registrar/i;
- function refreshWriteButtons(){for(const b of root.querySelectorAll('button')){const readonly=profile?.role==='viewer'&&mutationLabel.test(b.textContent+' '+b.getAttribute('aria-label'));if(readonly&&!b.disabled){b.dataset.quapReadOnly='true';b.disabled=true;b.title='Seu perfil permite somente leitura.';}else if(!readonly&&b.dataset.quapReadOnly){b.disabled=false;delete b.dataset.quapReadOnly;b.removeAttribute('title');}}}
+ function refreshWriteButtons(){for(const b of root.querySelectorAll('button')){if(b.closest('#quap-account'))continue;const readonly=profile?.role==='viewer'&&mutationLabel.test(b.textContent+' '+b.getAttribute('aria-label'));if(readonly&&!b.disabled){b.dataset.quapReadOnly='true';b.disabled=true;b.title='Seu perfil permite somente leitura.';}else if(!readonly&&b.dataset.quapReadOnly){b.disabled=false;delete b.dataset.quapReadOnly;b.removeAttribute('title');}}}
  new MutationObserver(refreshWriteButtons).observe(root,{childList:true,subtree:true,characterData:true});
  // UI guidance; database rules independently enforce this restriction.
- document.addEventListener('click',e=>{if(profile?.role!=='viewer'||!root.contains(e.target))return;const b=e.target.closest('button');if(b&&/salvar|excluir|remover|adicionar|novo|nova|importar|editar|cadastrar|aplicar|confirmar|registrar/i.test(b.textContent+' '+b.getAttribute('aria-label'))){e.preventDefault();e.stopImmediatePropagation();alert('Seu perfil permite somente leitura.');}},true);
+ document.addEventListener('click',e=>{if(profile?.role!=='viewer'||!root.contains(e.target)||e.target.closest('#quap-account'))return;const b=e.target.closest('button');if(b&&/salvar|excluir|remover|adicionar|novo|nova|importar|editar|cadastrar|aplicar|confirmar|registrar/i.test(b.textContent+' '+b.getAttribute('aria-label'))){e.preventDefault();e.stopImmediatePropagation();alert('Seu perfil permite somente leitura.');}},true);
 })();
