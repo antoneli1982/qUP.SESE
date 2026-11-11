@@ -601,13 +601,14 @@ var Br = We.string().min(1).max(100),
       description: We.string().max(1e3),
       versatilityCards: We.array(We.string().trim().min(1).max(140)).max(500).default([]),
       prerequisiteTrainingIds: We.array(Br).max(1000).default([]),
+      excludedPrerequisiteTrainingIds: We.array(Br).max(1000).default([]),
       matrixCourses: We.array(We.object({ trainingId: Br, demand: We.number().int().min(0).max(9999).default(0) })).max(300).default([]),
       matrixPreparedBy: We.string().max(140).default(""),
       matrixVerifiedBy: We.string().max(140).default(""),
       matrixApprovedBy: We.string().max(140).default(""),
       matrixIssueDate: We.string().max(20).default(""),
       matrixRevisionDate: We.string().max(20).default("")
-    })).max(200),
+    })).max(200).transform(items => [...items].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true }))),
     courseLevels: We.array(We.object({ employeeId: Br, trainingId: Br, level: We.number().int().min(0).max(4) })).max(200000).default([]),
     employees: We.array(We.object({
       id: Br,
@@ -720,7 +721,7 @@ function seseDepartmentPrerequisiteIds(data, departmentId, includeGlobal = true)
   const ids = department?.prerequisiteTrainingIds || [];
   const legacy = (data.departmentTrainings || []).filter(item => item.departmentId === departmentId).map(item => item.trainingId);
   const globals = includeGlobal ? data.trainingCatalog.filter(item => item.global).map(item => item.id) : [];
-  return [...new Set([...ids, ...legacy, ...globals])].filter(id => data.trainingCatalog.some(item => item.id === id));
+  return [...new Set([...ids, ...legacy, ...globals])].filter(id => !(department?.excludedPrerequisiteTrainingIds || []).includes(id) && data.trainingCatalog.some(item => item.id === id));
 }
 // Identifica o curso de um treinamento realizado: o vínculo com o catálogo ou, na falta dele, o mesmo título.
 function seseRecordCourseKey(data, record) {
@@ -2904,7 +2905,7 @@ function SeseCourseRelation({ data, employeeId, onClose }) {
     const items = ids.map(id => ({ id, title: catalog.get(id).title, state: courseState(id) })).sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
     const done = items.filter(item => item.state.key === "ok").length;
     return { dep, items, done, total: items.length, pct: items.length ? Math.round(done / items.length * 100) : 0 };
-  }).filter(d => d.total > 0).sort((a, b) => b.pct - a.pct || a.dep.name.localeCompare(b.dep.name, "pt-BR"));
+  }).filter(d => d.total > 0).sort((a, b) => a.dep.name.localeCompare(b.dep.name, "pt-BR", { sensitivity: "base", numeric: true }));
   const sel = depts.find(d => d.dep.id === deptId);
   const done = [...own].sort((x, y) => (y.date || "").localeCompare(x.date || ""));
   const tone = pct => pct === 100 ? "ok" : pct >= 50 ? "mid" : "low";
@@ -3099,16 +3100,16 @@ function SeseAbsenceEditor({
   });
 }
 
-function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, department = false }) {
+function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, department = false, excluded = [], onExcludedChange = () => {} }) {
   const [query, setQuery] = Be.useState("");
   const options = [...data.trainingCatalog].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   const globals = department ? options.filter(item => item.global).map(item => item.id) : [];
-  const selected = [...new Set([...value.filter(Boolean), ...globals])];
+  const selected = [...new Set([...value.filter(Boolean), ...globals])].filter(id => !excluded.includes(id));
   const words = seseText(query).trim().split(/\s+/).filter(Boolean);
   const found = options.filter(item => words.every(word => seseText(item.title).includes(word)));
-  const toggle = id => { if (!globals.includes(id)) onChange(value.includes(id) ? value.filter(item => item !== id) : [...new Set([...value.filter(Boolean), id])]); };
-  const markFound = () => onChange([...new Set([...value.filter(Boolean), ...found.filter(item => !globals.includes(item.id)).map(item => item.id)])]);
-  const unmarkFound = () => { const ids = new Set(found.filter(item => !globals.includes(item.id)).map(item => item.id)); onChange(value.filter(id => !ids.has(id))); };
+  const toggle = id => { const removing = selected.includes(id); onChange(removing ? value.filter(item => item !== id) : [...new Set([...value.filter(Boolean), id])]); onExcludedChange(removing ? [...new Set([...excluded, id])] : excluded.filter(item => item !== id)); };
+  const markFound = () => { const ids = found.map(item => item.id); onChange([...new Set([...value.filter(Boolean), ...ids])]); onExcludedChange(excluded.filter(id => !ids.includes(id))); };
+  const unmarkFound = () => { const ids = new Set(found.map(item => item.id)); onChange(value.filter(id => !ids.has(id))); onExcludedChange([...new Set([...excluded, ...ids])]); };
   return /*#__PURE__*/_jsxs("div", { className: "sese-prerequisite-editor", children: [
     /*#__PURE__*/_jsx("div", { className: "sese-section-heading", children: /*#__PURE__*/_jsx("strong", { children: label }) }),
     /*#__PURE__*/_jsx("p", { className: "form-hint", children: hint || "Selecione os cursos do cadastro de treinamentos." }),
@@ -3120,7 +3121,7 @@ function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, depar
         /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", disabled: !found.some(item => selected.includes(item.id)), onClick: unmarkFound, children: "Desmarcar resultados" })
       ] }),
       /*#__PURE__*/_jsx("div", { className: "sese-prerequisite-checklist", role: "group", "aria-label": label, children: found.length ? found.map(item => /*#__PURE__*/_jsxs("label", { className: "sese-prerequisite-option" + (selected.includes(item.id) ? " selected" : ""), children: [
-        /*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), disabled: globals.includes(item.id), onChange: () => toggle(item.id) }),
+        /*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), onChange: () => toggle(item.id) }),
         /*#__PURE__*/_jsx("span", { children: item.title + (globals.includes(item.id) ? " · Global" : "") })
       ] }, item.id)) : /*#__PURE__*/_jsx("p", { className: "muted", children: "Nenhum curso encontrado com esse nome." }) }),
       /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Marque quantos cursos precisar. As seleções são mantidas ao mudar a busca. Clique em Salvar para cadastrar todos de uma vez." })
@@ -3496,7 +3497,7 @@ function Rh() {
               } : {})
             };
             if (ne === "task") delete Me.prerequisiteTrainingIds;
-            if (ne === "department") Me.versatilityCards = [];
+            if (ne === "department") { Me.versatilityCards = []; Me.excludedPrerequisiteTrainingIds = L.excludedPrerequisiteTrainingIds || []; }
           }
           if (ne === "employee" && (Me = {
             id: T,
@@ -4686,7 +4687,7 @@ function Rh() {
                   description: S.target.value
                 }))
               })]
-            }), b?.kind === "department" && (0,A.jsx)(SesePrerequisiteEditor, { department: true, data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO DO SETOR", hint: "Cada curso selecionado aparecerá automaticamente na matriz para todos os colaboradores deste setor, com a capacitação já registrada ou a pendência." }), b?.kind === "training" && (0,A.jsx)(SeseTrainingFields,{data:e,form:L,setForm:H,editing:!!b.id}), b?.kind === "evaluation" && (0, A.jsxs)(A.Fragment, {
+            }), b?.kind === "department" && (0,A.jsx)(SesePrerequisiteEditor, { department: true, excluded: L.excludedPrerequisiteTrainingIds || [], onExcludedChange: value => H(previous => ({ ...previous, excludedPrerequisiteTrainingIds: value })), data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO DO SETOR", hint: "Cada curso selecionado aparecerá automaticamente na matriz para todos os colaboradores deste setor, com a capacitação já registrada ou a pendência." }), b?.kind === "training" && (0,A.jsx)(SeseTrainingFields,{data:e,form:L,setForm:H,editing:!!b.id}), b?.kind === "evaluation" && (0, A.jsxs)(A.Fragment, {
               children: [(0, A.jsxs)("div", {
                 className: "evaluation-person",
                 children: [(0, A.jsx)(JA, {
