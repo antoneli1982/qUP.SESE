@@ -1,0 +1,57 @@
+/* Optional light palette. Status and warning colors retain their meaning. */
+html[data-theme=colorful] {
+  color-scheme: light;
+  --background: #faf7ff;
+  --foreground: #332746;
+  --card: #ffffff;
+  --card-foreground: #332746;
+  --popover: #ffffff;
+  --popover-foreground: #332746;
+  --primary: #7440b5;
+  --primary-foreground: #ffffff;
+  --secondary: #fceaf3;
+  --secondary-foreground: #81365e;
+  --muted: #f3edf9;
+  --muted-foreground: #6b5b7c;
+  --accent: #daf5ef;
+  --accent-foreground: #17695e;
+  --border: #e3d6ef;
+  --input: #d7c5e6;
+  --ring: #8751bd;
+  --sidebar: #f1e8fa;
+  --sidebar-foreground: #50306f;
+  --sidebar-primary: #7440b5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4d3f3;
+  --sidebar-accent-foreground: #50306f;
+  --sidebar-border: #d9c5ea;
+  --sidebar-ring: #8751bd;
+  --ui-ink: #7440b5;
+  --ui-soft: #f3edf9;
+  --ui-soft2: #fcf9ff;
+  --ui-border: #e3d6ef;
+  --ui-plum-soft: #fceaf3;
+  --ui-note: #e1f6f0;
+  --sese-blue: #7440b5;
+  --chart-1: #7440b5;
+  --chart-2: #ba477f;
+  --chart-3: #238577;
+  --chart-4: #a479cb;
+  --chart-5: #81365e;
+}
+html[data-theme=colorful] .app-sidebar [data-slot=sidebar-inner] { background: linear-gradient(165deg,#f1e8fa,#fceaf3 65%,#e1f6f0); }
+html[data-theme=colorful] .app-sidebar [data-slot=sidebar-menu-button] { color: #50306f; }
+html[data-theme=colorful] .app-sidebar [data-slot=sidebar-menu-button]:hover { background: #e4d3f3; }
+html[data-theme=colorful] .app-sidebar [data-slot=sidebar-menu-button][data-active=true] { color: #fff; background: #7440b5; }
+html[data-theme=colorful] .topbar { background: linear-gradient(100deg,#fff,#fceaf3 70%,#e1f6f0); }
+html[data-theme=colorful] .sese-scroll-toolbar { background: #f3edf9; border-color: #e3d6ef; }
+html[data-theme=colorful] .sese-scroll-toolbar button { color: #50306f; border-color: #d7c5e6; }
+html[data-theme=colorful] .sese-scroll-toolbar button:hover:not(:disabled) { background: #daf5ef; border-color: #238577; }
+html[data-theme=colorful] .sese-poly-sheet { --poly-head: #f3edf9; --poly-accent: #7440b5; --poly-accent-soft: #fceaf3; --poly-ink: #332746; --poly-muted: #6b5b7c; --poly-line: #e3d6ef; }
+select.theme-toggle { cursor: pointer; min-height: 36px; max-width: 125px; }
+select.theme-toggle:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+select.theme-toggle option { background: var(--card); color: var(--foreground); }
+html[data-theme=colorful] .brand { color: #50306f; }
+html[data-theme=colorful] .brand small,
+html[data-theme=colorful] .version { color: #6b5b7c; }
+html[data-theme=colorful] .brand-icon { color: #7440b5; background: #e4d3f3; }
