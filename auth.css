@@ -213,3 +213,23 @@ dialog.quap-confirm .access-password-wrap input { margin-top: 0; box-sizing: bor
 html[data-theme=colorful] #quap-account { color: #50306f; border-color: #d9c5ea; }
 html[data-theme=colorful] #quap-account button { background: #e4d3f3; }
 html[data-theme=colorful] #quap-account button:hover { background: #daf5ef; }
+
+/* Remove the white raster matte while preserving the original SESE contours.
+   Choose ink by the surface: the sidebar and login intro stay dark. */
+.sese-logo, .sese-poly-logo, .access-sese-logo {
+  background: transparent !important;
+  border-radius: 0 !important;
+  filter: url("sese-logo-filters.svg?v=2#blue");
+}
+.sese-logo, .access-brand > .access-sese-logo,
+html[data-theme=dark] .sese-poly-logo {
+  filter: url("sese-logo-filters.svg?v=2#white");
+}
+html[data-theme=colorful] .sese-logo {
+  filter: url("sese-logo-filters.svg?v=2#blue");
+}
+@media print {
+  .sese-logo, .sese-poly-logo, .access-sese-logo {
+    filter: url("sese-logo-filters.svg?v=2#blue") !important;
+  }
+}

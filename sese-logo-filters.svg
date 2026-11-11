@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <!-- The source has blue ink (red=0) on white (red=1).
+       Alpha=sourceAlpha-red removes the matte, including antialiased edges. -->
+  <filter id="blue" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+    <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0.4  0 0 0 0 1  -1 0 0 1 0"/>
+  </filter>
+  <filter id="white" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+    <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -1 0 0 1 0"/>
+  </filter>
+</svg>
