@@ -1074,7 +1074,7 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
   return /*#__PURE__*/_jsxs("div", { className: "sese-poly", children: [
     /*#__PURE__*/_jsxs("div", { className: "sese-poly-toolbar", children: [
       /*#__PURE__*/_jsxs("div", { children: [
-        /*#__PURE__*/_jsxs("h2", { className: "sese-poly-heading", children: [/*#__PURE__*/_jsx("span", { className: "sese-poly-open-icon", children: /*#__PURE__*/_jsx(dn, { size: 20 }) }), "Matriz de polival\xEAncia \u2014 " + department.name] }),
+        /*#__PURE__*/_jsxs("h2", { className: "sese-poly-heading", children: [/*#__PURE__*/_jsx("span", { className: "sese-poly-open-icon", children: /*#__PURE__*/_jsx(dn, { size: 20 }) }), "Matriz de compet\xEAncia \u2014 " + department.name] }),
         /*#__PURE__*/_jsx("p", { children: "Pré-requisitos e colaboradores são vinculados automaticamente ao setor atual. As capacitações registradas acompanham o colaborador nas mudanças de setor. Curso obrigatório sem capacitação permanece no nível 0." })
       ] }),
       /*#__PURE__*/_jsxs("div", { className: "sese-poly-actions", children: [
@@ -1305,7 +1305,7 @@ function UD(e, t = !1) {
     let polySheet = XLSX.utils.aoa_to_sheet(polyRows);
     polySheet["!cols"] = [28, 14, 34, 14, 42, 8, 32, 14].map(u => ({ wch: u })), polySheet["!autofilter"] = { ref: polySheet["!ref"] }, XLSX.utils.book_append_sheet(o, polySheet, "Matriz_Polivalencia");
   }
-  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por setor."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das sete colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para setor; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Sincronizar colaboradores", "Modo padr\xE3o ao subir uma planilha com colaboradores: mant\xE9m quem j\xE1 existe com todo o hist\xF3rico, adiciona os novos e elimina quem n\xE3o est\xE1 na planilha. A lista de eliminados aparece antes de confirmar e depois da importa\xE7\xE3o."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["Matriz de polival\xEAncia", "Matriz_Departamentos define os cursos (colunas) da matriz de cada setor, na ordem das linhas, e a Necessidade de operadores. Niveis_Cursos guarda apenas os n\xEDveis 0 a 4 ajustados manualmente; os demais s\xE3o calculados pelos dias desde o curso (1 a 45 = n\xEDvel 1, 46 a 90 = n\xEDvel 2, 91 em diante = n\xEDvel 3). Matriz_Polivalencia \xE9 apenas para leitura."], ["Matriz_Cursos", "Aba apenas para leitura: a matriz de cada setor, colaborador por curso. Para alterar, edite Treinamentos e Cursos_Pre_Requisito."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
+  let n = [["Cadastro geral", "Treinamentos_Gerais: catálogo reutilizável. Validade_Meses é opcional; Tags separadas por vírgulas."], ["Vínculos", "Treinamentos_Departamentos relaciona ID_Departamento ao ID_Treinamento_Geral. Treinamentos registra a realização por colaborador."], ["Pré-requisitos", "Nas abas Departamentos e Colaboradores, Cursos_Pre_Requisito recebe IDs de cursos do catálogo separados por ponto e vírgula. A matriz calcula a aptidão por setor."], ["Marcações", "Interno, Externo e Homologado: Sim ou Não. Homologado exige Externo=Sim e Interno=Não."], ["Afastamentos", "Inicio e Fim em AAAA-MM-DD. Fim vazio oculta na matriz. Acima de 45 dias, a situação será Reciclagem pendente até marcar Reciclagem_Realizada=Sim e Data_Reciclagem."], ["Matriz e histórico", "Matriz_Consulta omite afastados e identifica reciclagem pendente. As abas de cadastro preservam os dados completos e os níveis históricos."], ["quAP \u2014 MATRIZ DE COMPET\xCANCIAS \u2014 EXCEL", "ORIENTA\xC7\xD5ES"], ["Arquivo", t ? "Modelo vazio para preenchimento" : "Exporta\xE7\xE3o completa em " + Xo()], ["Como preencher", "Mantenha os nomes das abas. Em Colaboradores, as linhas 1 e 2 são ignoradas; títulos na linha 3 e registros a partir da linha 4, ou registros desde a linha 3 na ordem das sete colunas. As outras abas mantêm os títulos na primeira linha."], ["Identificadores", "Preencha IDs \xFAnicos: D001 para setor; A001 para atividade; C001 para colaborador; T001 para treinamento. N\xE3o reutilize um ID para outra pessoa ou registro."], ["V\xEDnculos", "ID_Departamento referencia o ID na aba Departamentos; ID_Colaborador referencia Colaboradores; ID_Atividade referencia Atividades."], ["Ordem sugerida", "Departamentos \u2192 Atividades e Colaboradores \u2192 Avaliacoes e Treinamentos."], ["Datas", "Use AAAA-MM-DD (2026-09-27), DD/MM/AAAA (27/09/2026) ou datas v\xE1lidas do Excel."], ["N\xEDveis", "Nivel_Percentual: 0, 50 ou 100. Tamb\xE9m aceita c\xE9lulas formatadas como 0%, 50% ou 100%."], ["Carga hor\xE1ria", "Opcional: deixe em branco quando não informado. Se preencher, use horas num\xE9ricas maiores que zero. Ex.: 1,5 para 1 hora e 30 minutos."], ["Vencimento", "\xC9 opcional; deixe a c\xE9lula vazia se n\xE3o houver. Deve ser igual ou posterior \xE0 data do treinamento."], ["Obrigat\xF3rios", "Departamentos: ID, Nome. Atividades: ID, ID_Departamento, Nome. Colaboradores: Nome e Matrícula (ou ID preservado da exportação). Avaliacoes: todos. Treinamentos: ID, ID_Colaborador, Titulo, Data. Carga_Horaria é opcional."], ["Importa\xE7\xE3o parcial", "Mantenha as abas desejadas; ao adicionar/atualizar, refer\xEAncias podem apontar para cadastros j\xE1 existentes."], ["Sincronizar colaboradores", "Modo padr\xE3o ao subir uma planilha com colaboradores: mant\xE9m quem j\xE1 existe com todo o hist\xF3rico, adiciona os novos e elimina quem n\xE3o est\xE1 na planilha. A lista de eliminados aparece antes de confirmar e depois da importa\xE7\xE3o."], ["Adicionar / atualizar", "Atualiza registros com o mesmo ID e mant\xE9m os demais. Avalia\xE7\xF5es usam a dupla colaborador + atividade como chave."], ["Substituir todos", "Troca todos os registros pelo conte\xFAdo importado, ap\xF3s confirma\xE7\xE3o. Exporte uma c\xF3pia antes."], ["Matriz_Consulta", "Aba apenas para leitura. Para alterar n\xEDveis pela planilha, edite Avaliacoes."], ["Matriz de compet\xEAncia", "Matriz_Departamentos define os cursos (colunas) da matriz de cada setor, na ordem das linhas, e a Necessidade de operadores. Niveis_Cursos guarda apenas os n\xEDveis 0 a 4 ajustados manualmente; os demais s\xE3o calculados pelos dias desde o curso (1 a 45 = n\xEDvel 1, 46 a 90 = n\xEDvel 2, 91 em diante = n\xEDvel 3). Matriz_Polivalencia \xE9 apenas para leitura."], ["Matriz_Cursos", "Aba apenas para leitura: a matriz de cada setor, colaborador por curso. Para alterar, edite Treinamentos e Cursos_Pre_Requisito."], ["F\xF3rmulas", "As abas de importa\xE7\xE3o devem conter valores, sem f\xF3rmulas."], ["Sem avalia\xE7\xE3o", "Na matriz, uma combina\xE7\xE3o sem avalia\xE7\xE3o registrada aparece como 0%."], ["Hist\xF3rico", "A renova\xE7\xE3o \xE9 um novo treinamento com outro ID; o hist\xF3rico anterior permanece registrado."]],
     l = XLSX.utils.aoa_to_sheet(n);
   return l["!cols"] = [{
     wch: 28
@@ -1937,10 +1937,6 @@ var A = B(le(), 1),
     label: "Vis\xE3o geral",
     icon: yu
   }, {
-    id: "matrix",
-    label: "Matriz de compet\xEAncias",
-    icon: dn
-  }, {
     id: "strategy",
     label: "Gestão Estratégica",
     icon: Lu
@@ -1964,7 +1960,6 @@ var A = B(le(), 1),
   fM = {
     strategy: "Gestão Estratégica",
     dashboard: "Vis\xE3o geral",
-    matrix: "Matriz de compet\xEAncias",
     employees: "Colaboradores",
     departments: "Setores",
     trainings: "Treinamentos realizados", catalog:"Cadastro de treinamentos"
@@ -1973,7 +1968,6 @@ var A = B(le(), 1),
     strategy: "Encontre pessoas qualificadas por área e oportunidades de atuação por pessoa.",
     catalog:"Uma base única de treinamentos para setores e colaboradores.",
     dashboard: "Pessoas preparadas. Processos mais seguros.",
-    matrix: "Conhe\xE7a a capacidade da equipe, atividade por atividade.",
     employees: "Conhe\xE7a as compet\xEAncias e o hist\xF3rico de cada pessoa.",
     departments: "Organize as \xE1reas e os processos da sua opera\xE7\xE3o.",
     trainings: "Registre aprendizados e acompanhe as datas de renova\xE7\xE3o."
@@ -3950,8 +3944,8 @@ function Rh() {
             className: "page-actions",
             children: i === "dashboard" ? (0, A.jsxs)("button", {
               className: "btn outline",
-              onClick: () => Ht("matrix"),
-              children: ["Abrir matriz ", (0, A.jsx)(fa, {
+              onClick: () => Ht("departments"),
+              children: ["Abrir setores ", (0, A.jsx)(fa, {
                 size: 17
               })]
             }) : i === "strategy" ? null : i === "employees" ? io("Novo colaborador", () => ot("employee")) : i === "departments" ? io("Novo setor", () => ot("department")) : i === "catalog" ? io("Novo treinamento geral", () => setSeseEdit({})) : i === "trainings" ? io("Registrar treinamento", () => ot("training")) : io("Nova atividade", () => ot("task"))
@@ -4004,9 +3998,6 @@ function Rh() {
               children: [(0, A.jsx)(Us, {
                 size: 16
               }), Ql(Xo())]
-            }) : i === "matrix" ? (0, A.jsx)("span", {
-              className: "muted",
-              children: "Clique em um n\xEDvel para ver os treinamentos"
             }) : (0, A.jsxs)("label", {
               className: "search",
               children: [(0, A.jsx)(Lu, {
@@ -4024,7 +4015,7 @@ function Rh() {
               children: [(0, A.jsxs)("button", {
                 type: "button",
                 className: "metric featured metric-link",
-                onClick: () => Ht("matrix"),
+                onClick: () => Ht("departments"),
                 "aria-label": "Cobertura de compet\xEAncias \u2014 abrir matriz",
                 children: [(0, A.jsxs)("div", {
                   className: "metric-top",
@@ -4069,9 +4060,9 @@ function Rh() {
                 type: "button",
                 className: "metric metric-link",
                 onClick: () => {
-                  Ht("matrix"), te("50");
+                  Ht("departments");
                 },
-                "aria-label": "Em treinamento \u2014 ver compet\xEAncias no n\xEDvel 50%",
+                "aria-label": "Em treinamento \u2014 abrir setores",
                 children: [(0, A.jsxs)("div", {
                   className: "metric-top",
                   children: ["Em treinamento", (0, A.jsx)(Ys, {
@@ -4127,7 +4118,7 @@ function Rh() {
                 children: [(0, A.jsxs)("button", {
                   type: "button",
                   className: "panel-heading panel-heading-link",
-                  onClick: () => Ht("matrix"),
+                  onClick: () => Ht("departments"),
                   "aria-label": "Compet\xEAncias por setor \u2014 abrir matriz",
                   children: [(0, A.jsxs)("div", {
                     children: [(0, A.jsx)("h2", {
@@ -4145,7 +4136,7 @@ function Rh() {
                     return (0, A.jsxs)("button", {
                       className: "department-bar",
                       onClick: () => {
-                        p(S.id), Ht("matrix");
+                        seseGoSector(S.id);
                       },
                       children: [(0, A.jsxs)("div", {
                         className: "bar-heading",
@@ -4282,192 +4273,6 @@ function Rh() {
                 })]
               }), wa(Na.filter(S => ["expired", "week", "month"].includes(Vr(S.expiry).key)).sort((S, M) => S.expiry.localeCompare(M.expiry)).slice(0, 5), !0)]
             })]
-          }), i === "matrix" && ce === "all" && (0, A.jsxs)(A.Fragment, {
-            children: [(0, A.jsxs)("div", {
-              className: "matrix-legend",
-              children: [(0,A.jsx)("span",{className:"sese-refresh-badge",children:"Vermelho · reciclagem pendente após afastamento > 45 dias"}),(0, A.jsx)(vi, {
-                tone: "neutral",
-                children: "0% \xB7 Sem treinamento"
-              }), (0, A.jsx)(vi, {
-                tone: "amber",
-                children: "50% \xB7 Em treinamento"
-              }), (0, A.jsx)(vi, {
-                tone: "green",
-                children: "100% \xB7 Apto para exercer o processo"
-              })]
-            }), e.departments.length ? e.departments.filter(S => C === "all" || S.id === C).map(S => {
-              let M = e.employees.filter(ne => ne.departmentId === S.id && !seseAbsence(e,ne.id).active),
-                T = e.tasks.filter(ne => ne.departmentId === S.id);
-              return (0, A.jsxs)("section", {
-                className: "panel matrix-panel",
-                children: [(0, A.jsxs)("div", {
-                  className: "panel-heading",
-                  children: [(0, A.jsxs)("div", {
-                    children: [(0, A.jsx)("h2", {
-                      children: S.name
-                    }), (0, A.jsxs)("p", {
-                      children: [M.length, " colaboradores \xB7 ", T.length, " atividades"]
-                    })]
-                  }), (0, A.jsxs)("button", {
-                    className: "text-link",
-                    onClick: () => ot("task", void 0, {
-                      departmentId: S.id
-                    }),
-                    children: [(0, A.jsx)(gn, {
-                      size: 17
-                    }), " Atividade"]
-                  })]
-                }), !M.length ? (0, A.jsx)(Vn, {
-                  title: T.length ? "Adicione os colaboradores deste setor" : "Cadastre as atividades deste setor",
-                  text: "A matriz cruza cada colaborador com as atividades da sua \xE1rea.",
-                  action: io(T.length ? "Novo colaborador" : "Nova atividade", () => ot(T.length ? "employee" : "task", void 0, {
-                    departmentId: S.id
-                  }))
-                }) : (0, A.jsxs)($u, {
-                  className: "matrix-table",
-                  children: [(0, A.jsx)(ec, {
-                    children: (0, A.jsxs)(wr, {
-                      children: [(0, A.jsx)(Rt, {
-                        className: "sticky-col",
-                        children: "Nome"
-                      }), (0, A.jsx)(Rt, { className: "sese-matrix-info", children: "Matrícula" }), (0, A.jsx)(Rt, { className: "sese-matrix-info", children: "Admissão" }), (0, A.jsx)(Rt, { className: "sese-matrix-info", children: "Cargo Atual" }), T.map(ne => (0, A.jsx)(Rt, {
-                        children: (0, A.jsx)("span", {
-                          title: ne.description,
-                          children: ne.name
-                        })
-                      }, ne.id)), T.length ? (0, A.jsx)(Rt, {
-                        children: "Cobertura"
-                      }) : (0, A.jsx)(Rt, { children: "Atividades" })]
-                    })
-                  }), (0, A.jsx)(tc, {
-                    children: M.map(ne => {
-                      let Me = T.filter(st => ya(e, ne.id, st.id) === 100).length;
-                      return (0, A.jsxs)(wr, {
-                        className:seseAbsence(e,ne.id).needsRefresh?"sese-refresh-row":"",
-                        children: [(0, A.jsx)(Lt, {
-                          className: "sticky-col",
-                          children: seseCell(ne, "name", (0, A.jsxs)("button", {
-                            className: "person-cell",
-                            onClick: () => Te(ne.id),
-                            children: [(0, A.jsx)(JA, {
-                              name: ne.name
-                            }), (0, A.jsxs)("span", {
-                              children: [(0, A.jsx)("strong", {
-                                children: ne.name
-                              }), (0, A.jsx)("small", {
-                                children: seseAbsence(e,ne.id).needsRefresh?"Reciclagem pendente · afastamento maior que 45 dias":ne.role || "Sem cargo informado"
-                              })]
-                            })]
-                          }))
-                        }), ...["registration", "admissionDate", "role"].map(field => (0, A.jsx)(Lt, { className: "sese-matrix-info", children: seseCell(ne, field) }, field)), T.map(st => {
-                          let It = ya(e, ne.id, st.id),
-                            _ = e.evaluations.find(it => it.employeeId === ne.id && it.taskId === st.id);
-                          return (0, A.jsx)(Lt, {
-                            children: (0, A.jsxs)("button", {
-                              className: "level level-" + It + (seseAbsence(e,ne.id).needsRefresh?" sese-refresh-level":""),
-                              "aria-label": `${ne.name}, ${st.name}: ${It}% ${sc(It)}. ${seseAbsence(e,ne.id).needsRefresh?"Reciclagem pendente. ":""}Ver treinamentos.`,
-                              title: (_ ? "Avaliado em " + Ql(_.date) : "Sem avalia\xE7\xE3o registrada; n\xEDvel inicial 0%") + " \xB7 Clique para ver os treinamentos do colaborador",
-                              onClick: () => Te(ne.id, st.id),
-                              children: [seseAbsence(e,ne.id).needsRefresh && (0,A.jsx)(Po,{size:14}), !seseAbsence(e,ne.id).needsRefresh && It === 100 && (0, A.jsx)(un, {
-                                size: 14
-                              }), " ", It, "%"]
-                            })
-                          }, st.id);
-                        }), !T.length ? (0, A.jsx)(Lt, { className: "sese-matrix-info", children: "Nenhuma atividade cadastrada" }) : (0, A.jsxs)(Lt, {
-                          children: [(0, A.jsxs)("span", {
-                            className: "coverage-number",
-                            children: [Math.round(Me / T.length * 100), "%"]
-                          }), (0, A.jsx)(xh, {
-                            value: Me / T.length * 100,
-                            className: "mini-progress"
-                          })]
-                        })]
-                      }, ne.id);
-                    })
-                  })]
-                })]
-              }, S.id);
-            }) : (0, A.jsx)("section", {
-              className: "panel",
-              children: (0, A.jsx)(Vn, {
-                title: "Vamos criar sua matriz",
-                text: "Adicione um setor para cadastrar as atividades e os colaboradores.",
-                action: io("Criar setor", () => ot("department"))
-              })
-            }), (0, A.jsx)("p", {
-              className: "footnote",
-              children: "Cobertura = atividades avaliadas em 100% \xF7 atividades do setor. Atividades ainda n\xE3o avaliadas come\xE7am em 0%."
-            })]
-          }), i === "matrix" && ce === "50" && (0, A.jsxs)("section", {
-            className: "panel",
-            children: [(0, A.jsxs)("div", {
-              className: "panel-heading",
-              children: [(0, A.jsxs)("div", {
-                children: [(0, A.jsxs)("h2", {
-                  children: ["Compet\xEAncias em treinamento ", (0, A.jsx)("span", {
-                    className: "counter",
-                    children: so.half
-                  })]
-                }), (0, A.jsx)("p", {
-                  children: "Somente avalia\xE7\xF5es no n\xEDvel 50%, no setor selecionado"
-                })]
-              }), (0, A.jsxs)("button", {
-                className: "text-link",
-                onClick: () => te("all"),
-                children: ["Ver matriz completa ", (0, A.jsx)(rl, {
-                  size: 16
-                })]
-              })]
-            }), so.half ? (0, A.jsxs)($u, {
-              children: [(0, A.jsx)(ec, {
-                children: (0, A.jsxs)(wr, {
-                  children: [(0, A.jsx)(Rt, {
-                    children: "Colaborador"
-                  }), (0, A.jsx)(Rt, {
-                    children: "Setor"
-                  }), (0, A.jsx)(Rt, {
-                    children: "Atividade"
-                  }), (0, A.jsx)(Rt, {
-                    children: "N\xEDvel"
-                  })]
-                })
-              }), (0, A.jsx)(tc, {
-                children: e.employees.filter(S => (C === "all" || S.departmentId === C) && !seseAbsence(e,S.id).active).flatMap(S => e.tasks.filter(M => M.departmentId === S.departmentId && ya(e, S.id, M.id) === 50).map(M => (0, A.jsxs)(wr, {
-                  className:seseAbsence(e,S.id).needsRefresh?"sese-refresh-row":"",
-                  children: [(0, A.jsx)(Lt, {
-                    children: (0, A.jsxs)("button", {
-                      className: "person-cell",
-                      onClick: () => Te(S.id),
-                      children: [(0, A.jsx)(JA, {
-                        name: S.name
-                      }), (0, A.jsxs)("span", {
-                        children: [(0, A.jsx)("strong", {
-                          children: S.name
-                        }), (0, A.jsx)("small", {
-                          children: S.role || "Sem cargo informado"
-                        })]
-                      })]
-                    })
-                  }), (0, A.jsx)(Lt, {
-                    children: qn(S.departmentId)
-                  }), (0, A.jsx)(Lt, {
-                    children: M.name
-                  }), (0, A.jsx)(Lt, {
-                    children: (0, A.jsxs)("button", {
-                      className: "level level-50"+(seseAbsence(e,S.id).needsRefresh?" sese-refresh-level":""),
-                      "aria-label": `${S.name}, ${M.name}: 50% Em treinamento. Ver treinamentos.`,
-                      onClick: () => Te(S.id, M.id),
-                      children: ["50% ", (0, A.jsx)(Ys, {
-                        size: 13
-                      })]
-                    })
-                  })]
-                }, S.id + "|" + M.id)))
-              })]
-            }) : (0, A.jsx)(Vn, {
-              title: "Nenhuma compet\xEAncia em treinamento",
-              text: "N\xE3o h\xE1 avalia\xE7\xF5es no n\xEDvel 50% nesta sele\xE7\xE3o."
-            })]
           }), i === "catalog" && (0,A.jsx)(SeseCatalog,{items:e.trainingCatalog,onPeople:item=>setSeseCourseView({mode:"people",course:seseCourseFromCatalog(item)}),onAddPeople:item=>setSeseCourseView({mode:"add",course:seseCourseFromCatalog(item)}),peopleCount:(()=>{const counts=seseCourseCounts(e);return item=>counts.get("t:"+item.id)||0;})(),onEdit:setSeseEdit,onGlobal:async item=>{try{await seseSaveCatalog({...item,global:!item.global});}catch(err){El.error(err.message);}},onDelete:item=>de({kind:"catalog",id:item.id,name:item.title}),disabled:v||(!l&&(d||!!f))}), i === "employees" && (0, A.jsxs)("section", {
             className: "panel",
             children: [(0, A.jsx)("div", {
@@ -4540,7 +4345,7 @@ function Rh() {
                   children: (0, A.jsx)(nl, {
                     size: 23
                   })
-                }), (0,A.jsxs)("span",{className:"sese-poly-top",children:[(0,A.jsxs)("button",{type:"button",className:"icon-button sese-people-button","aria-label":"Ver quem est\xE1 no setor "+S.name,title:"Quem est\xE1 no setor",onClick:()=>setSesePeopleDept(S.id),children:[(0,A.jsx)(SesePersonIcon,{size:18}),(0,A.jsx)("span",{className:"sese-people-count",children:e.employees.filter(M=>M.departmentId===S.id).length})]}),(0,A.jsx)("button",{type:"button",className:"icon-button sese-poly-top-button","aria-label":"Abrir a matriz de polival\xEAncia de "+S.name,title:"Matriz de polival\xEAncia",onClick:()=>sesePolyGo(S.id),children:(0,A.jsx)(dn,{size:18})}), Wl("department", S.id, S.name)]})]
+                }), (0,A.jsxs)("span",{className:"sese-poly-top",children:[(0,A.jsxs)("button",{type:"button",className:"icon-button sese-people-button","aria-label":"Ver quem est\xE1 no setor "+S.name,title:"Quem est\xE1 no setor",onClick:()=>setSesePeopleDept(S.id),children:[(0,A.jsx)(SesePersonIcon,{size:18}),(0,A.jsx)("span",{className:"sese-people-count",children:e.employees.filter(M=>M.departmentId===S.id).length})]}),(0,A.jsx)("button",{type:"button",className:"icon-button sese-poly-top-button","aria-label":"Abrir a matriz de compet\xEAncia de "+S.name,title:"Matriz de compet\xEAncia",onClick:()=>sesePolyGo(S.id),children:(0,A.jsx)(dn,{size:18})}), Wl("department", S.id, S.name)]})]
               }), (0, A.jsx)("h2", {
                 children: S.name
               }), (0, A.jsx)("p", {
@@ -4552,7 +4357,7 @@ function Rh() {
                 }), e.employees.filter(M => M.departmentId === S.id).length, " colaboradores", (0, A.jsx)("span", {
                   children: "\xB7"
                 }), e.tasks.filter(M => M.departmentId === S.id).length, " atividades"]
-              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de polival\xEAncia"}),(0,A.jsx)("small",{children:seseDepartmentMatrixLinks(e,S.id).length?(seseDepartmentMatrixLinks(e,S.id).length+" curso"+(seseDepartmentMatrixLinks(e,S.id).length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Defina os pré-requisitos do setor ou inclua cursos adicionais"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do setor "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use + para buscar e selecionar vários cursos obrigatórios de uma vez."})]}), (0, A.jsx)("div", {
+              }), (0,A.jsxs)("button",{type:"button",className:"sese-poly-open",onClick:()=>sesePolyGo(S.id),children:[(0,A.jsx)("span",{className:"sese-poly-open-icon",children:(0,A.jsx)(dn,{size:22})}),(0,A.jsxs)("span",{className:"sese-poly-open-text",children:[(0,A.jsx)("strong",{children:"Matriz de compet\xEAncia"}),(0,A.jsx)("small",{children:seseDepartmentMatrixLinks(e,S.id).length?(seseDepartmentMatrixLinks(e,S.id).length+" curso"+(seseDepartmentMatrixLinks(e,S.id).length===1?"":"s")+" \xB7 "+e.employees.filter(M=>M.departmentId===S.id).length+" colaboradores"):"Defina os pré-requisitos do setor ou inclua cursos adicionais"})]}),(0,A.jsx)("span",{className:"sese-poly-open-arrow","aria-hidden":"true",children:"\u2192"})]}), (0,A.jsxs)("section",{className:"sese-department-trainings",children:[(0,A.jsxs)("div",{className:"sese-section-heading",children:[(0,A.jsx)("h3",{children:"CURSOS DE PRÉ-REQUISITO"}),(0,A.jsx)("button",{className:"icon-button sese-plus","aria-label":"Editar pré-requisitos do setor "+S.name,onClick:()=>ot("department",S.id),disabled:v,children:(0,A.jsx)(gn,{size:19})})]}),seseDepartmentPrerequisiteIds(e,S.id).sort((a,b)=>(e.trainingCatalog.find(item=>item.id===a)?.title||"").localeCompare(e.trainingCatalog.find(item=>item.id===b)?.title||"","pt-BR")).map(id=>{const item=e.trainingCatalog.find(record=>record.id===id);return (0,A.jsxs)("div",{className:"sese-linked-row",children:[(0,A.jsxs)("div",{children:[(0,A.jsx)("strong",{children:item?.title||"Curso não encontrado"}),(0,A.jsx)("small",{children:item?seseDurationLabel(item.hours)+" · "+(item.validityMonths?item.validityMonths+" meses":"Sem validade definida"):""}),(0,A.jsx)(SeseTags,{tags:item?.tags||[]})]})]},id)}),!seseDepartmentPrerequisiteIds(e,S.id).length&&(0,A.jsx)("p",{className:"muted",children:"Use + para buscar e selecionar vários cursos obrigatórios de uma vez."})]}), (0, A.jsx)("div", {
                 className: "task-heading",
                 children: "ATIVIDADES DO SETOR"
               }), (0, A.jsxs)("div", {
