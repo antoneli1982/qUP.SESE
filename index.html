@@ -1115,7 +1115,8 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
         /*#__PURE__*/_jsxs("div", { className: "sese-poly-notes", children: [
           /*#__PURE__*/_jsxs("div", { className: "sese-poly-sign", children: [field("matrixPreparedBy", "Elaborado por"), field("matrixVerifiedBy", "Verificado por"), field("matrixApprovedBy", "Aprovado por"), field("matrixIssueDate", "Data de emiss\xE3o", "date"), field("matrixRevisionDate", "Data de revis\xE3o", "date"), /*#__PURE__*/_jsxs("div", { className: "sese-poly-month", title: department.matrixIssueDate ? "M\xEAs da data de emiss\xE3o" : "Informe a data de emiss\xE3o para preencher o m\xEAs vigente", children: [/*#__PURE__*/_jsx("span", { children: "M\xEAs vigente" }), /*#__PURE__*/_jsx("strong", { children: sesePolyMonth(department.matrixIssueDate) })] })] })
         ] })
-      ] })
+      ] }),
+      /*#__PURE__*/_jsx("div", { className: "sese-poly-document-code", children: "F-05BR-SCA-241 - Rev.00 - Matriz de Competências e treinamentos" })
     ] }) }),
     picking && /*#__PURE__*/_jsx(SesePolyCourses, { data, department, onClose: () => setPicking(false), onSave: (links, order) => onSaveDepartment(department.id, { matrixCourses: links, matrixCourseOrder: order }) })
   ] });
@@ -5348,6 +5349,7 @@ html[data-theme=dark] .sese-poly-badge.away{color:#ff9aa5!important}
 .sese-poly-month{background:var(--poly-accent-soft)!important;border-color:transparent!important}
 .sese-poly-month span{color:var(--poly-accent)!important}
 .sese-poly-month strong{padding:3px 0!important;font-weight:700}
+.sese-poly-document-code{box-sizing:border-box;padding:.5rem 1.25rem;border-top:1px solid var(--poly-line);color:var(--poly-ink);font-size:.6875rem;line-height:1.4;text-align:right;break-inside:avoid}
 .sese-poly-notes{flex:none;width:100%}
 .sese-poly-legend{width:100%;box-sizing:border-box;border:0!important;gap:.5rem;grid-template-columns:repeat(5,minmax(5.4rem,1fr))!important}
 .sese-poly-legend div{border:1px solid var(--poly-line)!important;border-radius:10px;background:var(--poly-paper);padding:8px 6px!important}
