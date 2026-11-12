@@ -37,6 +37,17 @@ function flatten(n) { if(!n || typeof n !== 'object') return []; return [n,...[n
  assert.deepEqual(Array.from(vm.runInContext('(function(){'+search+';return seseDeptFound;})()',c),d=>d.id),['quality-dept'],'Shared quality training and descriptions must not match unrelated sectors');
  c.seseDeptQuery='';
  assert.equal(vm.runInContext('(function(){'+search+';return seseDeptFound.length;})()',c),2,'Clearing search restores all sectors');
+ const moveSource=html.slice(html.indexOf('  const moveCourse = async'),html.indexOf('  const saveDemand ='));
+ c.matrix={courses:[{id:'a'},{id:'b'},{id:'c'}]}; c.department={id:'d'};
+ c.disabled=false;c.movingCourse={current:false};c.setSavingOrder=()=>{};
+ c.onSaveDepartment=async (id,patch)=>{assert.equal(id,'d');saved=patch;};
+ const move=vm.runInContext('(function(){'+moveSource+';return moveCourse;})()',c);
+ await move('a','c'); assert.deepEqual(Array.from(saved.matrixCourseOrder),['b','c','a']);
+ await move('c','a'); assert.deepEqual(Array.from(saved.matrixCourseOrder),['c','a','b']);
+ saved=null; c.disabled=true; await move('a','b');assert.equal(saved,null);
+ c.disabled=false;await move('unknown','b');assert.equal(saved,null);
+ c.onSaveDepartment=async()=>{throw Error('save failure');};
+ await assert.rejects(move('a','b'));assert.equal(c.movingCourse.current,false);
  let count=0;
  for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) { if(m[2].trim() && !/application\/ld\+json/.test(m[1])) {new vm.Script(m[2]);count++;} }
  console.log('Passed: admission ordering, missing dates, course order save/reload, demand preservation, requirement removal, footer order, sector search and '+count+' script syntax checks.');

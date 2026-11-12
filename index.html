@@ -1052,11 +1052,23 @@ function sesePolyPrint(node, fileName) {
 function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onSaveLevel, onOpen, disabled }) {
   const [picking, setPicking] = Be.useState(false);
   const sheet = Be.useRef(null);
+  const draggedCourse = Be.useRef(null), movingCourse = Be.useRef(false);
+  const [savingOrder, setSavingOrder] = Be.useState(false);
   const departments = [...data.departments].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
   const department = departments.find(item => item.id === departmentId) || departments[0];
   if (!department) return null;
   const matrix = sesePolyMatrix(data, department.id);
   const span = matrix.courses.length + 3;
+  const moveCourse = async (id, targetId) => {
+    if (disabled || movingCourse.current || id === targetId) return;
+    const order = matrix.courses.map(course => course.id);
+    const from = order.indexOf(id), to = order.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    order.splice(from, 1); order.splice(to, 0, id);
+    movingCourse.current = true; setSavingOrder(true);
+    try { await onSaveDepartment(department.id, { matrixCourseOrder: order }); }
+    finally { movingCourse.current = false; setSavingOrder(false); }
+  };
   const saveDemand = (course, value) => { const number = Math.max(0, Math.min(9999, Math.round(Number(value) || 0))); return onSaveDepartment(department.id, { matrixCourses: (department.matrixCourses || []).map(link => link.trainingId === course.id ? { ...link, demand: number } : link) }); };
   const field = (key, label, type = "text") => /*#__PURE__*/_jsxs("label", { children: [/*#__PURE__*/_jsx("span", { children: label }), /*#__PURE__*/_jsx(SesePolyInput, { value: department[key] || "", type, label, disabled, onSave: value => onSaveDepartment(department.id, { [key]: String(value || "").trim() }) })] });
   return /*#__PURE__*/_jsxs("div", { className: "sese-poly", children: [
@@ -1071,6 +1083,7 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
         /*#__PURE__*/_jsx("button", { type: "button", className: "sese-poly-button", onClick: () => sesePolyPrint(sheet.current, ["Matriz Operacional", "Setor " + department.name, department.matrixIssueDate ? sesePolyMonth(department.matrixIssueDate).replace(" / ", " ") : ""].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim()), children: "Imprimir / PDF" })
       ] })
     ] }),
+    !disabled && matrix.courses.length > 1 && /*#__PURE__*/_jsx("p", { className: "sese-poly-order-hint", role: "status", children: savingOrder ? "Salvando ordem…" : "Arraste o nome do treinamento para outra coluna ou use as setas ← →. A ordem é salva automaticamente." }),
     !matrix.courses.length && /*#__PURE__*/_jsxs("p", { className: "sese-poly-empty", children: ["Esta matriz ainda n\xE3o tem cursos. Use ", /*#__PURE__*/_jsx("strong", { children: "Escolher cursos" }), " para definir as colunas de ", department.name, "."] }),
     /*#__PURE__*/_jsx("div", { className: "sese-poly-scroll", children: /*#__PURE__*/_jsxs("div", { className: "sese-poly-sheet", ref: sheet, children: [
       /*#__PURE__*/_jsxs("table", { className: "sese-poly-table", children: [
@@ -1084,7 +1097,19 @@ function SesePolyBoard({ data, departmentId, onDepartment, onSaveDepartment, onS
             /*#__PURE__*/_jsx("th", { className: "sese-poly-h", children: "MATR\xCDCULA" }),
             /*#__PURE__*/_jsx("th", { className: "sese-poly-h left", children: "NOME" }),
             /*#__PURE__*/_jsx("th", { className: "sese-poly-h", children: "ADMISS\xC3O" }),
-            matrix.courses.map(course => /*#__PURE__*/_jsx("th", { className: "sese-poly-v", title: course.title, children: /*#__PURE__*/_jsx("span", { children: course.title.toLocaleUpperCase("pt-BR") }) }, course.id))
+            matrix.courses.map((course, index) => /*#__PURE__*/_jsxs("th", {
+              className: "sese-poly-v", title: course.title + (disabled ? "" : " — Arraste para mudar a ordem"),
+              draggable: !disabled && !savingOrder,
+              onDragStart: event => { if (disabled || movingCourse.current) { event.preventDefault(); return; } draggedCourse.current = course.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", course.id); },
+              onDragOver: event => { if (!disabled && !movingCourse.current && draggedCourse.current) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } },
+              onDrop: event => { event.preventDefault(); const id = draggedCourse.current; draggedCourse.current = null; if (id) moveCourse(id, course.id); },
+              onDragEnd: () => { draggedCourse.current = null; },
+              children: [/*#__PURE__*/_jsx("span", { children: course.title.toLocaleUpperCase("pt-BR") }),
+                !disabled && /*#__PURE__*/_jsxs("div", { className: "sese-poly-column-move", children: [
+                  /*#__PURE__*/_jsx("button", { type: "button", disabled: savingOrder || index === 0, "aria-label": "Mover " + course.title + " para a esquerda", title: "Mover para a esquerda", onClick: () => moveCourse(course.id, matrix.courses[index - 1]?.id), children: "←" }),
+                  /*#__PURE__*/_jsx("button", { type: "button", disabled: savingOrder || index === matrix.courses.length - 1, "aria-label": "Mover " + course.title + " para a direita", title: "Mover para a direita", onClick: () => moveCourse(course.id, matrix.courses[index + 1]?.id), children: "→" })
+                ] })]
+            }, course.id))
           ] })
         ] }),
         /*#__PURE__*/_jsxs("tbody", { children: [
@@ -5146,6 +5171,13 @@ html[data-theme=dark] .sese-poly-sheet{--poly-line:#5b7092;--poly-head:#2a3b57;-
 .sese-poly-title{white-space:nowrap;font-size:1.35rem;font-weight:700;padding:14px 6px!important}
 .sese-poly-subtitle{font-size:.8125rem;font-weight:700}
 .sese-poly-v{height:auto!important;width:2.4rem;min-width:2.4rem;padding:6px 2px!important;vertical-align:bottom!important;background:var(--poly-head);font-size:.6875rem;font-weight:700}
+.sese-poly-v[draggable=true]{cursor:grab}
+.sese-poly-v[draggable=true]:active{cursor:grabbing}
+.sese-poly-column-move{display:flex;justify-content:center;gap:2px;margin-top:8px}
+.sese-poly-column-move button{border:1px solid var(--poly-line);border-radius:4px;background:var(--poly-paper);color:var(--poly-ink);cursor:pointer;padding:3px;font-size:14px;line-height:1}
+.sese-poly-column-move button:disabled{opacity:.3;cursor:default}
+#sese-poly-print .sese-poly-column-move{display:none!important}
+@media print{.sese-poly-column-move{display:none!important}}
 .sese-poly-v.plain{background:transparent}
 .sese-poly-v.wide{min-width:6.5rem}
 .sese-poly-v span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);max-height:9.5rem;line-height:1.15;text-align:left;white-space:normal}
