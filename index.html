@@ -3383,12 +3383,10 @@ function Rh() {
     next.courseLevels = (next.courseLevels || []).filter(item => !(item.employeeId === employeeId && item.trainingId === trainingId));
     if (level !== null) next.courseLevels.push({ employeeId, trainingId, level });
   });
-  const seseDeptTitles = new Map(e.trainingCatalog.map(item => [item.id, item.title]));
   const seseDeptFound = e.departments.filter(S => {
     const words = seseText(seseDeptQuery).split(/\s+/).filter(Boolean);
-    if (!words.length) return true;
-    const haystack = seseText([S.name, S.description, ...seseDepartmentPrerequisiteIds(e, S.id).map(id => seseDeptTitles.get(id)), ...(S.matrixCourses || []).map(link => seseDeptTitles.get(link.trainingId))].join(" "));
-    return words.every(word => haystack.includes(word));
+    const name = seseText(S.name);
+    return words.every(word => name.includes(word));
   });
   const seseMoPlan = Be.useMemo(() => { try { return seseOfficialPlan(e); } catch (err) { console.error("Falha ao comparar com a lista oficial.", err); return null; } }, [e]);
   async function seseMoApply() {
@@ -3990,7 +3988,7 @@ function Rh() {
                 size: 18
               }), (0, A.jsx)("input", {
                 "aria-label": i === "departments" ? "Pesquisar setores" : "Buscar por nome",
-                placeholder: i === "departments" ? "Buscar setor ou curso…" : i === "employees" ? "Buscar colaborador\u2026" : "Buscar treinamento, pessoa ou #tag…",
+                placeholder: i === "departments" ? "Buscar setor pelo nome…" : i === "employees" ? "Buscar colaborador\u2026" : "Buscar treinamento, pessoa ou #tag…",
                 value: i === "departments" ? seseDeptQuery : g,
                 onChange: S => i === "departments" ? setSeseDeptQuery(S.target.value) : h(S.target.value)
               })]
@@ -4507,7 +4505,7 @@ function Rh() {
             })]
           }), i === "departments" && (0, A.jsxs)("div", {
             className: "department-grid",
-            children: [e.departments.length > 0 && (0, A.jsxs)("div", { className: "full sese-dept-search", children: [(0, A.jsxs)("label", { className: "search", children: [(0, A.jsx)(Lu, { size: 18 }), (0, A.jsx)("input", { type: "search", "aria-label": "Buscar setor", placeholder: "Buscar setor ou curso\u2026", value: seseDeptQuery, onChange: S => setSeseDeptQuery(S.target.value) })] }), seseDeptQuery && (0, A.jsx)("button", { type: "button", className: "text-link", onClick: () => setSeseDeptQuery(""), children: "Limpar busca" }), (0, A.jsxs)("small", { children: [seseDeptFound.length, " de ", e.departments.length, " setores"] })] }), e.departments.length > 0 && !seseDeptFound.length && (0, A.jsx)("section", { className: "panel full sese-dept-none", children: "Nenhum setor encontrado para \u201C" + seseDeptQuery + "\u201D." }), seseDeptFound.map(S => (0, A.jsxs)("section", {
+            children: [e.departments.length > 0 && (0, A.jsxs)("div", { className: "full sese-dept-search", children: [(0, A.jsxs)("label", { className: "search", children: [(0, A.jsx)(Lu, { size: 18 }), (0, A.jsx)("input", { type: "search", "aria-label": "Buscar setor", placeholder: "Buscar setor pelo nome\u2026", value: seseDeptQuery, onChange: S => setSeseDeptQuery(S.target.value) })] }), seseDeptQuery && (0, A.jsx)("button", { type: "button", className: "text-link", onClick: () => setSeseDeptQuery(""), children: "Limpar busca" }), (0, A.jsxs)("small", { children: [seseDeptFound.length, " de ", e.departments.length, " setores"] })] }), e.departments.length > 0 && !seseDeptFound.length && (0, A.jsx)("section", { className: "panel full sese-dept-none", children: "Nenhum setor encontrado para \u201C" + seseDeptQuery + "\u201D." }), seseDeptFound.map(S => (0, A.jsxs)("section", {
               id: "sese-sector-" + S.id,
               className: "panel department-card" + (seseSectorFocus === S.id ? " sese-sector-focus" : ""),
               children: [(0, A.jsxs)("div", {

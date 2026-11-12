@@ -25,11 +25,18 @@ function flatten(n) { if(!n || typeof n !== 'object') return []; return [n,...[n
  const foot=html.slice(html.indexOf('className: "sese-poly-foot"'),html.indexOf('function HA('));
  assert(foot.indexOf('sese-poly-legend')<foot.indexOf('sese-poly-sign'));
  assert(html.includes('value: i === "departments" ? seseDeptQuery : g'));
- const search=html.slice(html.indexOf('  const seseDeptTitles ='),html.indexOf('  const seseMoPlan ='));
+ const search=html.slice(html.indexOf('  const seseDeptFound ='),html.indexOf('  const seseMoPlan ='));
  c.e=data;c.seseDeptQuery='expedicao';
  assert.equal(vm.runInContext('(function(){'+search+';return seseDeptFound.length;})()',c),1);
  c.seseDeptQuery='inexistente';
  assert.equal(vm.runInContext('(function(){'+search+';return seseDeptFound.length;})()',c),0);
+ data.trainingCatalog.push({id:'quality',title:'Qualidade',global:true});
+ data.departments.push({id:'quality-dept',name:'QUALIDADE',description:''});
+ data.departments[0].description='Treinamentos de qualidade';
+ c.seseDeptQuery='  qualidade  ';
+ assert.deepEqual(Array.from(vm.runInContext('(function(){'+search+';return seseDeptFound;})()',c),d=>d.id),['quality-dept'],'Shared quality training and descriptions must not match unrelated sectors');
+ c.seseDeptQuery='';
+ assert.equal(vm.runInContext('(function(){'+search+';return seseDeptFound.length;})()',c),2,'Clearing search restores all sectors');
  let count=0;
  for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) { if(m[2].trim() && !/application\/ld\+json/.test(m[1])) {new vm.Script(m[2]);count++;} }
  console.log('Passed: admission ordering, missing dates, course order save/reload, demand preservation, requirement removal, footer order, sector search and '+count+' script syntax checks.');
