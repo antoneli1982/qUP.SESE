@@ -33,35 +33,44 @@
         const courses = new Map();
         for (const department of data.departments) {
           const matrix = helpers.matrix(data, department.id);
-          const present = matrix.employees.filter(person => !matrix.absence(person).active);
           for (const course of matrix.courses) {
-            if (!courses.has(course.id)) courses.set(course.id, { ...course, people: [] });
-            const group = courses.get(course.id);
-            for (const person of present) {
-              const { level } = matrix.level(person, course);
-              if (level >= 3) group.people.push({ person, department, level });
-            }
+            if (!courses.has(course.id)) courses.set(course.id, { ...course, sectors: [] });
+            const people = matrix.employees.map(person => ({
+              person, level: matrix.level(person, course).level, away: matrix.absence(person).active
+            })).filter(entry => entry.level > 0);
+            courses.get(course.id).sectors.push({ department, people });
           }
         }
         return [...courses.values()].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
       }, [data]);
-      const visible = groups.map(group => includes(group.title, search) ? group : {
-        ...group, people: group.people.filter(({ person, department }) =>
-          includes([group.title, person.name, person.registration, department.name].join(' '), search))
-      }).filter(group => group.people.length || includes(group.title, search));
+      const visible = groups.map(group => {
+        const sectors = group.sectors.flatMap(({ department, people }) => {
+          const context = [group.title, department.name].join(' ');
+          if (includes(context, search)) return [{ department, people }];
+          const matches = people.filter(({ person }) => includes([context, person.name, person.registration].join(' '), search));
+          return matches.length ? [{ department, people: matches }] : [];
+        });
+        return { ...group, sectors };
+      }).filter(group => group.sectors.length);
       return h('section', { className: 'panel strategy-result-panel' },
-        h('h2', null, 'Colaboradores treinados por curso'),
-        h('p', null, 'Cada curso reúne as pessoas de nível 3 ou 4, sem afastamento ativo, nas matrizes em que ele aparece.'),
+        h('h2', null, 'Colaboradores por curso da matriz'),
+        h('p', null, 'A lista mostra os níveis 1 a 4. A contagem de treinados segue a matriz e considera os níveis 3 e 4 sem afastamento ativo.'),
         h('label', null, 'Buscar curso, nome, matrícula ou departamento',
           h('input', { type: 'search', value: search, onChange: event => setSearch(event.target.value) })),
         visible.length === 0 && h('p', { role: 'status' }, groups.length ? 'Nenhum resultado para a busca.' : 'Nenhum curso nas matrizes de competências.'),
-        visible.map(group => h('details', { className: 'strategy-card', key: group.id },
-          h('summary', null, group.title + ' (' + group.people.length + ')'),
-          group.people.length ? h('ul', { className: 'strategy-course-list' },
-            group.people.map(({ person, department, level }) => h('li', { key: person.id },
-              h('button', { type: 'button', className: 'text-link', onClick: () => onPerson(person.id) }, person.name),
-              h('span', null, [person.registration, department.name, 'Nível ' + level].filter(Boolean).join(' · ')))))
-            : h('p', null, 'Nenhum colaborador treinado neste curso.'))));
+        visible.map(group => {
+          const people = group.sectors.flatMap(sector => sector.people);
+          const trained = people.filter(entry => entry.level >= 3 && !entry.away).length;
+          return h('details', { className: 'strategy-card', key: group.id },
+            h('summary', null, group.title + ' · Matrizes: ' + group.sectors.length + ' · Com nível registrado: ' + people.length + ' · Treinados: ' + trained),
+            group.sectors.map(({ department, people }) => h('div', { key: department.id },
+              h('h3', null, department.name),
+              people.length ? h('ul', { className: 'strategy-course-list' },
+                people.map(({ person, level, away }) => h('li', { key: person.id },
+                  h('button', { type: 'button', className: 'text-link', onClick: () => onPerson(person.id) }, person.name),
+                  h('span', null, [person.registration, 'Nível ' + level, away && 'Afastado'].filter(Boolean).join(' · ')))))
+                : h('p', null, 'Curso vinculado à matriz. Nenhum colaborador com nível registrado.'))));
+        }));
     }
     return function SeseStrategy({ data, onDepartment, onPerson }) {
       const [mode, setMode] = React.useState(helpers.matrix ? 'matrix' : 'department');
