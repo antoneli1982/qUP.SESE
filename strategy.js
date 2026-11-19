@@ -27,8 +27,44 @@
     const h = React.createElement;
     const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const includes = (value, query) => normalize(query).trim().split(/\s+/).every(word => normalize(value).includes(word));
+    function MatrixTraining({ data, onPerson }) {
+      const [search, setSearch] = React.useState('');
+      const groups = React.useMemo(() => {
+        const courses = new Map();
+        for (const department of data.departments) {
+          const matrix = helpers.matrix(data, department.id);
+          const present = matrix.employees.filter(person => !matrix.absence(person).active);
+          for (const course of matrix.courses) {
+            if (!courses.has(course.id)) courses.set(course.id, { ...course, people: [] });
+            const group = courses.get(course.id);
+            for (const person of present) {
+              const { level } = matrix.level(person, course);
+              if (level >= 3) group.people.push({ person, department, level });
+            }
+          }
+        }
+        return [...courses.values()].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+      }, [data]);
+      const visible = groups.map(group => includes(group.title, search) ? group : {
+        ...group, people: group.people.filter(({ person, department }) =>
+          includes([group.title, person.name, person.registration, department.name].join(' '), search))
+      }).filter(group => group.people.length || includes(group.title, search));
+      return h('section', { className: 'panel strategy-result-panel' },
+        h('h2', null, 'Colaboradores treinados por curso'),
+        h('p', null, 'Cada curso reúne as pessoas de nível 3 ou 4, sem afastamento ativo, nas matrizes em que ele aparece.'),
+        h('label', null, 'Buscar curso, nome, matrícula ou departamento',
+          h('input', { type: 'search', value: search, onChange: event => setSearch(event.target.value) })),
+        visible.length === 0 && h('p', { role: 'status' }, groups.length ? 'Nenhum resultado para a busca.' : 'Nenhum curso nas matrizes de competências.'),
+        visible.map(group => h('details', { className: 'strategy-card', key: group.id },
+          h('summary', null, group.title + ' (' + group.people.length + ')'),
+          group.people.length ? h('ul', { className: 'strategy-course-list' },
+            group.people.map(({ person, department, level }) => h('li', { key: person.id },
+              h('button', { type: 'button', className: 'text-link', onClick: () => onPerson(person.id) }, person.name),
+              h('span', null, [person.registration, department.name, 'Nível ' + level].filter(Boolean).join(' · ')))))
+            : h('p', null, 'Nenhum colaborador treinado neste curso.'))));
+    }
     return function SeseStrategy({ data, onDepartment, onPerson }) {
-      const [mode, setMode] = React.useState('department');
+      const [mode, setMode] = React.useState(helpers.matrix ? 'matrix' : 'department');
       const [departmentId, setDepartmentId] = React.useState('');
       const [employeeId, setEmployeeId] = React.useState('');
       const [search, setSearch] = React.useState('');
@@ -72,9 +108,10 @@
           h('div', null, h('strong', null, 'A pessoa certa para cada área'), h('p', null, 'Cruze os cursos válidos da equipe com os requisitos de cada departamento.')),
           h('span', { className: 'strategy-live' }, '● Consulta dos cadastros atuais')),
         h('div', { className: 'strategy-modes', role: 'group', 'aria-label': 'Tipo de consulta' },
+          helpers.matrix && h('button', { type: 'button', 'aria-pressed': mode === 'matrix', onClick: () => changeMode('matrix') }, 'Treinados por curso'),
           h('button', { type: 'button', 'aria-pressed': byDepartment, onClick: () => changeMode('department') }, 'Por departamento'),
-          h('button', { type: 'button', 'aria-pressed': !byDepartment, onClick: () => changeMode('person') }, 'Por pessoa')),
-        h('div', { className: 'strategy-layout' },
+          h('button', { type: 'button', 'aria-pressed': mode === 'person', onClick: () => changeMode('person') }, 'Por pessoa')),
+        mode === 'matrix' ? h(MatrixTraining, { data, onPerson }) : h('div', { className: 'strategy-layout' },
           h('aside', { className: 'panel strategy-picker' },
             h('h2', null, byDepartment ? '1. Escolha o departamento' : '1. Escolha a pessoa'),
             h('label', null, byDepartment ? 'Buscar departamento' : 'Buscar nome ou matrícula',
