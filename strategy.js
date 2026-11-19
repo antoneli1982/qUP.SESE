@@ -109,7 +109,7 @@
       const qualified = rows.filter(row => row.qualified);
       const available = qualified.filter(row => row.available);
       const unconfigured = rows.filter(row => row.status === 'unconfigured');
-      const found = rows.filter(row => (status === 'all' || row.status === status)
+      const found = rows.filter(row => (status === 'all' || (status === 'registered' ? row.person.departmentId === row.department.id : row.status === status))
         && (availability === 'all' || (availability === 'available' ? !row.away : row.away))
         && includes(byDepartment ? row.person.name + ' ' + (row.person.registration || '') + ' ' + (data.departments.find(d => d.id === row.person.departmentId)?.name || '') : row.department.name, resultSearch))
         .sort((a, b) => Number(b.qualified) - Number(a.qualified) || (b.percent || 0) - (a.percent || 0)
@@ -165,7 +165,7 @@
                 h('div', { className: 'strategy-filters' },
                   h('label', null, 'Pesquisar resultados', h('input', { type: 'search', value: resultSearch, placeholder: byDepartment ? 'Nome, matrícula ou setor atual…' : 'Nome do departamento…', onChange: event => { setResultSearch(event.target.value); setPage(1); } })),
                   h('label', null, 'Qualificação', h('select', { value: status, onChange: event => { setStatus(event.target.value); setPage(1); } },
-                    [['qualified', 'Somente qualificados'], ['pending', 'Com pendências'], ['unconfigured', 'Sem requisitos'], ['all', 'Todos']].map(([value, label]) => h('option', { key: value, value }, label)))),
+                    [...(byDepartment ? [['registered', 'Colaboradores registrados no departamento ' + selected.name]] : []), ['qualified', 'Somente qualificados'], ['pending', 'Com pendências'], ['unconfigured', 'Sem requisitos'], ['all', 'Todos']].map(([value, label]) => h('option', { key: value, value }, label)))),
                   h('label', null, 'Disponibilidade', h('select', { value: availability, onChange: event => { setAvailability(event.target.value); setPage(1); } },
                     [['all', 'Todos'], ['available', 'Sem afastamento ativo'], ['away', 'Afastados']].map(([value, label]) => h('option', { key: value, value }, label))))),
                 h('div', { className: 'strategy-result-heading' }, h('strong', { role: 'status', 'aria-live': 'polite' }, `${found.length} resultado(s)`),
