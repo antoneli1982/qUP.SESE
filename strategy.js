@@ -20,13 +20,62 @@
         percent: courses.length ? Math.round(matched / courses.length * 100) : null,
         status: !courses.length ? 'unconfigured' : qualified ? 'qualified' : 'pending' };
     }
-    return { employees, departments, requirements, assess };
+    function substitutes(target) {
+      const department = departments.find(item => item.id === target.departmentId);
+      if (!department) return [];
+      // Project everyone into the target matrix for reading levels across departments.
+      const matrix = helpers.matrix && helpers.matrix({ ...data, employees: employees.map(person => ({ ...person, departmentId: department.id })) }, department.id);
+      return employees.filter(person => person.id !== target.id).map(person => {
+        const row = assess(person, department);
+        const levels = row.courses.map(course => {
+          const required = Math.max(helpers.trainedLevel || 2, matrix ? Number(matrix.level(target, course).level) || 0 : 0);
+          const actual = matrix ? Number(matrix.level(person, course).level) || 0 : null;
+          return { course, required, actual, met: actual !== null && actual >= required };
+        });
+        const gaps = levels.filter(item => !item.met);
+        const compatible = row.qualified && gaps.length === 0 && !row.refresh;
+        return { ...row, levels, gaps, compatible, ready: compatible && !row.away };
+      }).sort((a, b) => Number(b.ready) - Number(a.ready) || Number(b.compatible) - Number(a.compatible)
+        || (a.missing.length + a.gaps.length) - (b.missing.length + b.gaps.length) || a.person.name.localeCompare(b.person.name, 'pt-BR'));
+    }
+    return { employees, departments, requirements, assess, substitutes };
   }
   window.seseStrategyModel = buildModel;
   window.createSeseStrategy = function (React, helpers) {
     const h = React.createElement;
     const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const includes = (value, query) => normalize(query).trim().split(/\s+/).every(word => normalize(value).includes(word));
+    function Substitutes({ model, selected, onPerson }) {
+      const [query, setQuery] = React.useState('');
+      const [onlyReady, setOnlyReady] = React.useState(true);
+      const [page, setPage] = React.useState(1);
+      if (!selected) return h('section', { className: 'panel' }, h('h2', null, 'Quem pode substituir esta pessoa?'), h('p', null, 'Busque e selecione a pessoa que será substituída.'));
+      const rows = model.substitutes(selected);
+      const configured = rows.length ? rows[0].courses.length > 0 : (model.requirements.get(selected.departmentId) || []).length > 0;
+      const found = rows.filter(row => (!onlyReady || row.ready) && includes(row.person.name + ' ' + (row.person.registration || ''), query));
+      const pages = Math.max(1, Math.ceil(found.length / 10));
+      const current = Math.min(page, pages);
+      return h('section', { className: 'panel strategy-result-panel' },
+        h('h2', null, 'Substitutos de ' + selected.name),
+        h('p', null, 'Compara todos os cursos exigidos na área da pessoa, com cursos válidos e nível igual ou superior ao dela, no mínimo treinado. Afastamento ativo ou reciclagem pendente impedem a indicação como disponível. A consulta apoia a decisão do gestor.'),
+        !configured && h('p', { role: 'status' }, 'Sem requisitos definidos para a área. Não é possível indicar substitutos.'),
+        h('label', null, 'Pesquisar substituto por nome ou matrícula', h('input', { type: 'search', value: query, onChange: event => { setQuery(event.target.value); setPage(1); } })),
+        h('label', null, h('input', { type: 'checkbox', checked: onlyReady, onChange: event => { setOnlyReady(event.target.checked); setPage(1); } }), ' Somente compatíveis sem afastamento ou reciclagem pendente'),
+        h('p', { role: 'status' }, found.length + ' resultado(s)'),
+        !found.length && h('p', null, 'Nenhum substituto atende aos filtros. Desmarque a opção acima para consultar as pendências.'),
+        found.slice((current - 1) * 10, current * 10).map(row => h('article', { className: 'strategy-card', key: row.person.id },
+          h('h3', null, row.person.name),
+          h('p', null, 'Matrícula ' + (row.person.registration || 'não informada') + ' · ' + (model.departments.find(d => d.id === row.person.departmentId)?.name || 'Sem setor')),
+          h('strong', null, !configured ? 'Sem requisitos' : row.ready ? 'Compatível pelos registros' : row.compatible ? 'Compatível, mas afastado' : 'Com pendências'),
+          row.away && h('p', null, 'Afastamento ativo'), row.refresh && h('p', null, 'Reciclagem após afastamento pendente'),
+          h('ul', { className: 'strategy-course-list' }, row.levels.map(item => h('li', { key: item.course.id },
+            h('span', null, item.course.title), h('span', null, (row.missing.some(course => course.id === item.course.id) ? 'Curso pendente ou vencido' : 'Curso válido') + ' · Nível ' + (item.actual === null ? 'não informado' : item.actual) + ' / exigido ' + item.required)))),
+          h('button', { type: 'button', className: 'text-link', onClick: () => onPerson(row.person.id) }, 'Ver cadastro'))),
+        pages > 1 && h('div', { className: 'strategy-pagination' },
+          h('button', { type: 'button', disabled: current === 1, onClick: () => setPage(current - 1) }, 'Anterior'),
+          h('span', null, 'Página ' + current + ' de ' + pages),
+          h('button', { type: 'button', disabled: current === pages, onClick: () => setPage(current + 1) }, 'Próxima')));
+    }
     function MatrixTraining({ data, onPerson }) {
       const [search, setSearch] = React.useState('');
       const [page, setPage] = React.useState(1);
@@ -135,7 +184,8 @@
         h('div', { className: 'strategy-modes', role: 'group', 'aria-label': 'Tipo de consulta' },
           helpers.matrix && h('button', { type: 'button', 'aria-pressed': mode === 'matrix', onClick: () => changeMode('matrix') }, 'Treinados por curso'),
           h('button', { type: 'button', 'aria-pressed': byDepartment, onClick: () => changeMode('department') }, 'Por departamento'),
-          h('button', { type: 'button', 'aria-pressed': mode === 'person', onClick: () => changeMode('person') }, 'Por pessoa')),
+          h('button', { type: 'button', 'aria-pressed': mode === 'person', onClick: () => changeMode('person') }, 'Por pessoa'),
+          h('button', { type: 'button', 'aria-pressed': mode === 'substitute', onClick: () => changeMode('substitute') }, 'Buscar substitutos')),
         mode === 'matrix' ? h(MatrixTraining, { data, onPerson }) : h('div', { className: 'strategy-layout' },
           h('aside', { className: 'panel strategy-picker' },
             h('h2', null, byDepartment ? '1. Escolha o departamento' : '1. Escolha a pessoa'),
@@ -148,7 +198,7 @@
             h('details', { className: 'strategy-rule' }, h('summary', null, 'Como a qualificação é calculada?'),
               h('p', null, 'É necessário ter todos os cursos exigidos válidos. São considerados os cursos da matriz, os pré-requisitos do departamento e os cursos globais, respeitando as exclusões cadastradas. Cursos registrados no cadastro da pessoa seguem a regra atual do sistema.'),
               h('p', null, 'O nível de polivalência é consultado separadamente. Afastamento é mostrado separadamente. Um departamento sem requisitos definidos não gera qualificação automática.'))),
-          h('section', { className: 'strategy-results', 'aria-label': 'Resultados da consulta' },
+          mode === 'substitute' ? h(Substitutes, { key: employeeId, model, selected, onPerson }) : h('section', { className: 'strategy-results', 'aria-label': 'Resultados da consulta' },
             !selected ? h('div', { className: 'panel strategy-empty' }, h('span', { 'aria-hidden': true }, '⌕'),
               h('h2', null, byDepartment ? 'Quem pode atuar nesta área?' : 'Onde esta pessoa pode atuar?'),
               h('p', null, byDepartment ? 'Selecione um departamento para consultar toda a equipe, inclusive pessoas de outras áreas.' : 'Selecione uma pessoa para comparar seus cursos com todos os departamentos.')) : h(React.Fragment, null,
