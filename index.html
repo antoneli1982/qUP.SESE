@@ -3215,11 +3215,11 @@ function SeseAbsenceEditor({
   });
 }
 
-function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, department = false, excluded = [], onExcludedChange = () => {} }) {
+function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, recordedIds = [], onRegister, department = false, excluded = [], onExcludedChange = () => {} }) {
   const [query, setQuery] = Be.useState("");
   const options = [...data.trainingCatalog].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   const globals = department ? options.filter(item => item.global).map(item => item.id) : [];
-  const selected = [...new Set([...value.filter(Boolean), ...globals])].filter(id => !excluded.includes(id));
+  const selected = [...new Set([...value.filter(Boolean), ...recordedIds, ...globals])].filter(id => !excluded.includes(id));
   const words = seseText(query).trim().split(/\s+/).filter(Boolean);
   const found = options.filter(item => words.every(word => seseText(item.title).includes(word)));
   const toggle = id => { const removing = selected.includes(id); onChange(removing ? value.filter(item => item !== id) : [...new Set([...value.filter(Boolean), id])]); onExcludedChange(removing ? [...new Set([...excluded, id])] : excluded.filter(item => item !== id)); };
@@ -3232,14 +3232,14 @@ function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, depar
       /*#__PURE__*/_jsx("input", { type: "search", className: "sese-prerequisite-search", value: query, placeholder: "Buscar curso pelo nome…", "aria-label": "Buscar curso pelo nome", onChange: event => setQuery(event.target.value), onKeyDown: event => { if (event.key === "Enter") event.preventDefault(); } }),
       /*#__PURE__*/_jsxs("div", { className: "sese-prerequisite-actions", children: [
         /*#__PURE__*/_jsx("span", { role: "status", children: `${selected.length} selecionado(s) · ${found.length} curso(s) na busca` }),
-        /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", disabled: !found.length, onClick: markFound, children: "Selecionar resultados" }),
-        /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", disabled: !found.some(item => selected.includes(item.id)), onClick: unmarkFound, children: "Desmarcar resultados" })
+        !onRegister && /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", disabled: !found.length, onClick: markFound, children: "Selecionar resultados" }),
+        !onRegister && /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", disabled: !found.some(item => selected.includes(item.id)), onClick: unmarkFound, children: "Desmarcar resultados" })
       ] }),
       /*#__PURE__*/_jsx("div", { className: "sese-prerequisite-checklist", role: "group", "aria-label": label, children: found.length ? found.map(item => /*#__PURE__*/_jsxs("label", { className: "sese-prerequisite-option" + (selected.includes(item.id) ? " selected" : ""), children: [
-        /*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), onChange: () => toggle(item.id) }),
+        /*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), disabled: recordedIds.includes(item.id), onChange: () => onRegister && !selected.includes(item.id) ? onRegister(item) : toggle(item.id) }),
         /*#__PURE__*/_jsx("span", { children: item.title + (globals.includes(item.id) ? " · Global" : "") })
       ] }, item.id)) : /*#__PURE__*/_jsx("p", { className: "muted", children: "Nenhum curso encontrado com esse nome." }) }),
-      /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Marque quantos cursos precisar. As seleções são mantidas ao mudar a busca. Clique em Salvar para cadastrar todos de uma vez." })
+      !onRegister && /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Marque quantos cursos precisar. As seleções são mantidas ao mudar a busca. Clique em Salvar para cadastrar todos de uma vez." })
     ] }) : /*#__PURE__*/_jsx("p", { className: "muted", children: "Cadastre primeiro os cursos no cadastro de treinamentos." })
   ] });
 }
@@ -3259,6 +3259,7 @@ function SeseEditableCell({ value = "", type = "text", options = [], label = "",
 const SeseStrategy = window.createSeseStrategy(Be, { courseIds: seseEmployeeCourseIds, absence: seseAbsence, links: seseDepartmentMatrixLinks, trainedLevel: 2, matrix: sesePolyMatrix });
 function Rh() {
   const [seseCard,setSeseCard]=Be.useState("all"), [sesePolyDept,setSesePolyDept]=Be.useState(""), [seseDeptQuery,setSeseDeptQuery]=Be.useState(""), [seseSyncResult,setSeseSyncResult]=Be.useState(null), [seseMoOpen,setSeseMoOpen]=Be.useState(false), [seseMoDone,setSeseMoDone]=Be.useState(null), [seseMoError,setSeseMoError]=Be.useState("");
+  const employeeDraft = Be.useRef(null);
   const [seseEdit,setSeseEdit]=Be.useState(null), [sesePicker,setSesePicker]=Be.useState(null), [seseAbsenceId,setSeseAbsenceId]=Be.useState(null), [seseRelId,setSeseRelId]=Be.useState(null);
   let [e, t] = (0, Be.useState)(Bn),
     [a, o] = (0, Be.useState)(Bn),
@@ -3420,6 +3421,24 @@ function Rh() {
     const next=structuredClone(e), record={...item,id:item.id||seseId()};
     next.trainingCatalog=[...next.trainingCatalog.filter(other=>other.id!==record.id),record]; await Ct(next);
   }
+  function openEmployeeTraining(employeeId, item) {
+    ot("training", undefined, { employeeId, templateId: item.id, title: item.title,
+      description: item.description || "", hours: seseFormatDuration(item.hours),
+      tags: item.tags || [], expiry: seseExpiry(Xo(), item.validityMonths) });
+  }
+  function registerEmployeeCourse(item) {
+    employeeDraft.current = { dialog: b, form: L };
+    openEmployeeTraining(b.id, item);
+  }
+  function closeRecordDialog() {
+    const draft = employeeDraft.current;
+    employeeDraft.current = null;
+    if (draft) {
+      H(draft.form);
+      ee("");
+      z(draft.dialog);
+    } else z(null);
+  }
   async function seseChoose(item) {
     if(sesePicker.kind==='department') {
       const next=structuredClone(e);
@@ -3427,7 +3446,7 @@ function Rh() {
       await Ct(next); setSesePicker(null);
     } else {
       const employeeId=sesePicker.id||"";
-      setSesePicker(null); ot("training",undefined,{employeeId,templateId:item.id,title:item.title,description:item.description,hours:seseFormatDuration(item.hours),tags:item.tags,expiry:seseExpiry(Xo(),item.validityMonths)});
+      setSesePicker(null); openEmployeeTraining(employeeId, item);
     }
   }
   async function seseUnlink(linkId) {try {const next=structuredClone(e);next.departmentTrainings=next.departmentTrainings.filter(item=>item.id!==linkId);await Ct(next);}catch(err){El.error(err.message);}}
@@ -3659,7 +3678,7 @@ function Rh() {
             for (const trainingId of Me.prerequisiteTrainingIds || []) M.departmentTrainings.push({ id: seseId(), departmentId: T, trainingId });
           }
         }
-        await Ct(M), z(null);
+        await Ct(M); closeRecordDialog();
       } catch (M) {
         ee(M instanceof Error ? M.message : "Confira os dados e tente novamente.");
       }
@@ -4574,7 +4593,7 @@ function Rh() {
     }), (0, A.jsx)(TA, {
       open: !!b,
       onOpenChange: S => {
-        !S && !v && z(null);
+        !S && !v && closeRecordDialog();
       },
       children: (0, A.jsxs)(NA, {
         className: "form-dialog",
@@ -4608,7 +4627,7 @@ function Rh() {
                 children: "Cadastre um setor primeiro."
               })]
             }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do setor *" : "Nome *"), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
-              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
+              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), recordedIds: b.id ? e.trainings.filter(record => record.employeeId === b.id).map(record => seseRecordCourseKey(e, record)) : [], onRegister: b.id ? registerEmployeeCourse : undefined, label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: b.id ? "Os cursos já cadastrados estão marcados. Marque um curso que falta para preencher o treinamento." : "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
                 className: "form-hint",
                 children: "Ao salvar, o colaborador passa para a matriz do novo setor, com os pré-requisitos e pendências dessa área. Seus treinamentos e níveis por curso são preservados."
               })]
@@ -4668,7 +4687,8 @@ function Rh() {
               children: [(0, A.jsx)("button", {
                 className: "btn outline",
                 type: "button",
-                onClick: () => z(null),
+                onClick: closeRecordDialog,
+                disabled: v,
                 children: "Cancelar"
               }), (0, A.jsxs)("button", {
                 className: "btn primary",
