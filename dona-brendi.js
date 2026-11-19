@@ -1167,6 +1167,20 @@ if (typeof module !== "undefined") module.exports = BrendiEngine;
   const SS_KEY = "dbr.chat.v1", LS_UNANS = "dbr.unanswered.v1", LS_SEEN = "dbr.seen.v1";
   const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* ---------- saudação pelo horário (fuso de Brasília, como o resto da ferramenta) ---------- */
+  function horaBR() {
+    try {
+      const n = parseInt(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }).format(new Date()), 10);
+      if (isNaN(n)) return new Date().getHours();
+      return n === 24 ? 0 : n;
+    } catch (e) { return new Date().getHours(); }
+  }
+  function saudacao() {
+    const h = horaBR();
+    return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  }
+  const CORTEX = "Como um pobre e humilde cérebro pode ajudar por meio do meu córtex frontal? 🧠";
+
   /* ---------- utilitários ---------- */
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const inline = s => esc(s)
@@ -1210,10 +1224,21 @@ if (typeof module !== "undefined") module.exports = BrendiEngine;
   };
   const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
 
-  const BRAIN = '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">' +
-    '<path d="M31 11c-3-4-10-4-13 1-5 0-9 4-9 9 0 2 .6 3.6 1.6 5C8 28.500 7 31 7 33.500c0 5 4 8.500 8.500 8.500.5 4 4 7.500 8.500 7.500 3 0 5.500-1.500 7-4V11z" fill="#ffffff"/>' +
-    '<path d="M33 11c3-4 10-4 13 1 5 0 9 4 9 9 0 2-.6 3.600-1.600 5C56 28.500 57 31 57 33.500c0 5-4 8.500-8.500 8.500-.5 4-4 7.500-8.500 7.500-3 0-5.500-1.500-7-4V11z" fill="#ffffff"/>' +
-    '<g fill="none" stroke="#0755bd" stroke-width="2.200" stroke-linecap="round"><path d="M20 22c3.500 0 5.500 2.200 5.500 5.500M17 36c3.500 0 6.500-2.200 6.500-5.500M44 22c-3.500 0-5.500 2.200-5.500 5.500M47 36c-3.500 0-6.500-2.200-6.500-5.500M27 43c1.500 1.500 3 2 4.500 2M37 43c-1.500 1.500-3 2-4.500 2M32 14v34"/></g></svg>';
+  /* sulcos/sinapses do cérebro — desenhados duas vezes: camada fixa + camada de pulso animado */
+  const SULCOS = '<path d="M20 22c3.500 0 5.500 2.200 5.500 5.500"/><path d="M17 36c3.500 0 6.500-2.200 6.500-5.500"/>' +
+    '<path d="M44 22c-3.500 0-5.500 2.200-5.500 5.500"/><path d="M47 36c-3.500 0-6.500-2.200-6.500-5.500"/>' +
+    '<path d="M27 43c1.500 1.500 3 2 4.500 2"/><path d="M37 43c-1.500 1.500-3 2-4.500 2"/><path d="M32 14v34"/>';
+  const TRACO = ' fill="none" stroke="#0755bd" stroke-width="2.200" stroke-linecap="round"';
+  const BRAIN = '<svg class="brain" viewBox="0 0 64 64" aria-hidden="true" focusable="false">' +
+    '<g class="hemi hemi-l"><path d="M31 11c-3-4-10-4-13 1-5 0-9 4-9 9 0 2 .6 3.6 1.6 5C8 28.500 7 31 7 33.500c0 5 4 8.500 8.500 8.500.5 4 4 7.500 8.500 7.500 3 0 5.500-1.500 7-4V11z" fill="#ffffff"/></g>' +
+    '<g class="hemi hemi-r"><path d="M33 11c3-4 10-4 13 1 5 0 9 4 9 9 0 2-.6 3.600-1.600 5C56 28.500 57 31 57 33.500c0 5-4 8.500-8.500 8.500-.5 4-4 7.500-8.500 7.500-3 0-5.500-1.500-7-4V11z" fill="#ffffff"/></g>' +
+    '<g class="sulcos"' + TRACO + '>' + SULCOS + '</g>' +
+    '<g class="pulso"' + TRACO + '>' + SULCOS + '</g>' +
+    '<g class="faisca"><circle cx="20" cy="22" r="2.4"/><circle cx="44" cy="22" r="2.4"/>' +
+    '<circle cx="23.500" cy="30.500" r="2.4"/><circle cx="40.500" cy="30.500" r="2.4"/></g>' +
+    '<g class="cortex"><path d="M31 11c-3-4-10-4-13 1-5 0-9 4-9 9 0 2 .6 3.6 1.6 5" fill="none" stroke="#ffd166" stroke-width="2.600" stroke-linecap="round" stroke-dasharray="46" stroke-dashoffset="46"/>' +
+    '<path d="M33 11c3-4 10-4 13 1 5 0 9 4 9 9 0 2-.6 3.600-1.600 5" fill="none" stroke="#ffd166" stroke-width="2.600" stroke-linecap="round" stroke-dasharray="46" stroke-dashoffset="46"/></g>' +
+    '</svg>';
 
   /* ---------- CSS ---------- */
   const CSS = `
@@ -1232,6 +1257,38 @@ textarea:focus-visible{outline:2px solid var(--pri);outline-offset:0}
 .fab svg{width:100%;height:100%}
 .fab::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--pri);opacity:0;animation:ring 2.4s ease-out 1.2s 3}
 @keyframes ring{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+
+/* ---------- o cérebro vivo da Dona Brendi ---------- */
+.brain{overflow:visible}
+.brain .hemi{transform-box:fill-box;transform-origin:center;animation:respira 3.6s ease-in-out infinite}
+.brain .hemi-r{animation-delay:-1.8s}
+.brain .sulcos{opacity:.45}
+.brain .pulso{stroke-dasharray:6 14;animation:sinapse 2.6s linear infinite}
+.brain .faisca circle{fill:#ffd166;opacity:0;transform-box:fill-box;transform-origin:center;animation:faisca 4.4s ease-in-out infinite}
+.brain .faisca circle:nth-child(2){animation-delay:1.1s}
+.brain .faisca circle:nth-child(3){animation-delay:2.2s}
+.brain .faisca circle:nth-child(4){animation-delay:3.3s}
+.brain .cortex{opacity:0}
+@keyframes respira{0%,100%{transform:scale(1)}50%{transform:scale(1.065)}}
+@keyframes sinapse{to{stroke-dashoffset:-40}}
+@keyframes faisca{0%,72%,100%{opacity:0;transform:scale(.3)}80%{opacity:.95;transform:scale(1)}92%{opacity:0;transform:scale(1.7)}}
+@keyframes flutua{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-3px) rotate(2deg)}}
+@keyframes aura{0%,100%{box-shadow:0 8px 24px rgba(7,85,189,.45),0 0 0 0 rgba(106,61,240,.5)}60%,100%{box-shadow:0 8px 24px rgba(7,85,189,.45),0 0 0 12px rgba(106,61,240,0)}}
+@keyframes acende{0%{stroke-dashoffset:46;opacity:0}25%{opacity:1}100%{stroke-dashoffset:0;opacity:0}}
+.fab{animation:aura 3.6s ease-in-out infinite}
+.fab .brain,.av .brain{animation:flutua 4.4s ease-in-out infinite}
+/* o córtex frontal se acende quando a Brendi cumprimenta ou pensa */
+.av.fala .brain .cortex,.mini.pensa .brain .cortex{opacity:1}
+.av.fala .brain .cortex path,.mini.pensa .brain .cortex path{animation:acende 1.6s ease-in-out infinite}
+.av.fala .brain .cortex path:last-child,.mini.pensa .brain .cortex path:last-child{animation-delay:.25s}
+.av.fala .brain .hemi{animation-duration:1.4s}
+/* nas mensagens o cérebro é mais discreto — e acelera quando está pensando */
+.msg .mini .brain .hemi{animation-duration:5.4s}
+.msg .mini .brain .faisca{display:none}
+.mini.pensa .brain .hemi{animation-duration:1.1s}
+.mini.pensa .brain .pulso{animation-duration:.9s}
+.mini.pensa .brain .faisca{display:block}
+.mini.pensa .brain .faisca circle{animation-duration:1.5s}
 .hint{position:fixed;right:90px;bottom:30px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:14px 14px 4px 14px;padding:9px 13px;box-shadow:var(--shadow);font-size:14px;max-width:230px}
 .hint[hidden],.panel[hidden],.menu[hidden]{display:none}
 .panel{position:fixed;right:20px;bottom:92px;width:min(410px,calc(100vw - 24px));height:min(660px,calc(100dvh - 116px));background:var(--bg);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;animation:pop .16s ease-out}
@@ -1316,6 +1373,7 @@ textarea::placeholder{color:var(--muted)}
   const $ = s => root.querySelector(s);
   const fab = $(".fab"), hint = $(".hint"), panel = $(".panel"), log = $(".log"), form = $("form"), ta = $("textarea"), menu = $(".menu"), send = $(".send");
   const menuBtn = $('[data-act="menu"]');
+  hint.innerHTML = esc(saudacao()) + '! Dúvidas? Fale com a <strong>Dona Brendi</strong> 🧠';
 
   /* o app usa diálogos (Radix) que fecham ao clicar/focar fora: isolamos os eventos da Brendi */
   ["pointerdown", "mousedown", "touchstart", "focusin", "focusout"].forEach(t => host.addEventListener(t, e => e.stopPropagation()));
@@ -1387,7 +1445,7 @@ textarea::placeholder{color:var(--muted)}
   function post(m) { m.r = "b"; push(m); return renderMsg(m, true); }
   function user(text) { const m = { r: "u", t: text }; push(m); renderMsg(m, true); }
   function typing() {
-    const row = el("div", "msg bot"); const mini = el("div", "mini"); mini.innerHTML = BRAIN; row.appendChild(mini);
+    const row = el("div", "msg bot"); const mini = el("div", "mini pensa"); mini.innerHTML = BRAIN; row.appendChild(mini);
     const b = el("div", "bub typing"); b.innerHTML = "<i></i><i></i><i></i>"; b.setAttribute("aria-label", "A Dona Brendi está pensando"); row.appendChild(b);
     log.appendChild(row); log.scrollTop = log.scrollHeight; return row;
   }
@@ -1433,12 +1491,13 @@ textarea::placeholder{color:var(--muted)}
     const res = E.ask(text, { lastId });
     if (res.kind === "empty") return;
     if (res.kind === "small") {
+      if (res.type === "hello" || res.type === "how" || res.type === "help") falar();
       const msgs = {
-        hello: "Oi! 😊 Em que posso ajudar na ferramenta?",
+        hello: saudacao() + "! 😊 " + CORTEX,
         thanks: "De nada! Se surgir outra dúvida, é só chamar. 💙",
         bye: "Até mais! Estarei por aqui (aperte **?** para me chamar).",
         how: "Tudo certo por aqui, com os neurônios em dia 🧠. E com você? Me diga a sua dúvida sobre a ferramenta.",
-        help: "Claro! Escolha um assunto ou escreva sua dúvida do seu jeito."
+        help: "Claro! " + CORTEX + "\n\nEscolha um assunto ou escreva sua dúvida do seu jeito."
       };
       const base = home().chips;
       return reply({ t: msgs[res.type] || msgs.hello, chips: (res.type === "hello" || res.type === "how" || res.type === "help") ? base : [] }, 60);
@@ -1490,8 +1549,16 @@ textarea::placeholder{color:var(--muted)}
     history = []; save(); log.textContent = ""; lastId = null; greet();
   }
   function greet() {
-    const h = home("Oi! Eu sou a **Dona Brendi**, o cérebro desta ferramenta 🧠.");
+    const h = home("**" + saudacao() + "!** Eu sou a **Dona Brendi**, o cérebro desta ferramenta.\n\n" + CORTEX);
     post(h);
+    falar();
+  }
+  /* acende o córtex frontal do cérebro do cabeçalho enquanto a Brendi cumprimenta */
+  function falar() {
+    const av = $(".av"); if (!av) return;
+    av.classList.add("fala");
+    clearTimeout(falar._t);
+    falar._t = setTimeout(() => av.classList.remove("fala"), reduced ? 0 : 3600);
   }
 
   /* ---------- eventos ---------- */
