@@ -2421,7 +2421,7 @@ function SeseCatalogEditor({
         onSubmit: submit,
         children: /*#__PURE__*/_jsxs("fieldset", {
           disabled: busy,
-          children: [titleField,
+          children: [field('title', 'Nome do treinamento *', 'text', true),
           /*#__PURE__*/_jsxs("div", { className: "sese-global-field", children: [
             /*#__PURE__*/_jsx("button", { type: "button", className: "sese-global-toggle", "aria-pressed": !!form.global, onClick: () => setForm(previous => ({ ...previous, global: !previous.global })), children: form.global ? "✓ Global" : "Global" }),
             /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Ao salvar como Global, este curso aparece como pré-requisito em todos os departamentos atuais e futuros. Isso não registra a realização do curso pelos colaboradores." })
@@ -2667,7 +2667,7 @@ function SeseTrainingFields({
           children: template?.title || form.title
         })]
       })]
-    }), field('title', 'Nome do treinamento *', 'text', true), !!String(form.description || template?.description || '').trim() && /*#__PURE__*/_jsxs("label", {
+    }), titleField, !!String(form.description || template?.description || '').trim() && /*#__PURE__*/_jsxs("label", {
       className: "field",
       children: ["Descri\xE7\xE3o / conte\xFAdo", /*#__PURE__*/_jsx("textarea", {
         maxLength: 3000,
