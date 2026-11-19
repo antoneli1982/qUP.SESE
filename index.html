@@ -675,7 +675,7 @@ var Br = We.string().min(1).max(100),
       r = new Set(e.employees.map(l => l.id)),
       n = new Set(e.tasks.map(l => l.id));
     [...e.employees, ...e.tasks].some(l => !o.has(l.departmentId)) && a("Setor n\xE3o encontrado."), e.trainings.some(l => !r.has(l.employeeId)) && a("Colaborador n\xE3o encontrado."), e.evaluations.some(l => !r.has(l.employeeId) || !n.has(l.taskId)) && a("Avalia\xE7\xE3o sem colaborador ou atividade.");
-  }).transform(e => seseApplyVersatility(sesePrunePoly(e))),
+  }).transform(e => seseApplyVersatility(sesePrunePoly(seseUnifyCourses(e)))),
   Bn = () => ({
     departments: [],
     employees: [],
@@ -727,14 +727,23 @@ function seseDepartmentPrerequisiteIds(data, departmentId, includeGlobal = true)
 // Identifica o curso de um treinamento realizado: o vínculo com o catálogo ou, na falta dele, o mesmo título.
 function seseRecordCourseKey(data, record) {
   if (record.templateId && data.trainingCatalog.some(item => item.id === record.templateId)) return record.templateId;
-  const sameTitle = data.trainingCatalog.find(item => seseSameName(item.title, record.title));
-  return sameTitle ? sameTitle.id : "titulo:" + seseText(record.title).trim();
+  const sameTitle = data.trainingCatalog.find(item => seseTitleKey(item.title) === seseTitleKey(record.title));
+  return sameTitle ? sameTitle.id : "titulo:" + seseTitleKey(record.title);
+}
+function seseLatestTraining(records) {
+  return records.reduce((latest, record) => !latest || record.date >= latest.date ? record : latest, null);
 }
 function seseEmployeeCourseIds(data, employeeId) {
   const employee = data.employees.find(item => item.id === employeeId);
   const ids = new Set(employee?.prerequisiteTrainingIds || []);
+  const latest = new Map();
   for (const record of data.trainings.filter(item => item.employeeId === employeeId)) {
-    if (!record.expiry || record.expiry >= Xo()) ids.add(seseRecordCourseKey(data, record));
+    const key = seseRecordCourseKey(data, record);
+    latest.set(key, seseLatestTraining([latest.get(key), record].filter(Boolean)));
+  }
+  for (const [key, record] of latest) {
+    if (!record.expiry || record.expiry >= Xo()) ids.add(key);
+    else ids.delete(key);
   }
   return ids;
 }
@@ -763,7 +772,8 @@ function seseDepartmentCourseMatrix(data, departmentId) {
   const today = Xo();
   const status = (employee, column) => {
     const list = records.get(employee.id + "|" + column.key) || [];
-    const valid = list.filter(item => !item.expiry || item.expiry >= today);
+    const latest = seseLatestTraining(list);
+    const valid = latest && (!latest.expiry || latest.expiry >= today) ? [latest] : [];
     if (valid.length) {
       // Sem vencimento prevalece; senão, vale o vencimento mais distante.
       const expiry = valid.some(item => !item.expiry) ? "" : valid.map(item => item.expiry).sort().pop();
@@ -771,9 +781,9 @@ function seseDepartmentCourseMatrix(data, departmentId) {
       const soon = state.key === "week" || state.key === "month";
       return { key: soon ? "soon" : "ok", has: true, mark: "\u2713", label: expiry ? (soon ? state.label : "At\xE9 " + Ql(expiry)) : "Sem vencimento", text: soon ? "Possui \xB7 vence em breve" : "Possui", expiry };
     }
-    if ((employee.prerequisiteTrainingIds || []).includes(column.key)) return { key: "ok", has: true, mark: "\u2713", label: "No cadastro", text: "Possui", expiry: "" };
+    if (!list.length && (employee.prerequisiteTrainingIds || []).includes(column.key)) return { key: "ok", has: true, mark: "\u2713", label: "No cadastro", text: "Possui", expiry: "" };
     if (list.length) {
-      const expiry = list.map(item => item.expiry).sort().pop();
+      const expiry = latest.expiry;
       return { key: "expired", has: false, mark: "!", label: "Vencido " + Ql(expiry), text: "Vencido", expiry };
     }
     return column.required ? { key: "pending", has: false, mark: "\u2715", label: "Pendente", text: "Pendente", expiry: "" } : { key: "none", has: false, mark: "\u2014", label: "", text: "N\xE3o possui", expiry: "" };
@@ -883,6 +893,37 @@ const seseDisplayCourseLevel = code => [0, 1, 1, 2, 3][code];
 const seseStoredCourseLevel = level => [0, 1, 3, 4][level];
 const SESE_LEVELS = ["N\xE3o executa atividade", "Em treinamento", "Treinado", "Treinado / multiplicado"];
 // Remove vínculos da matriz que apontam para cursos ou colaboradores que não existem mais.
+function seseUnifyCourses(data) {
+  const titles = new Map(), aliases = new Map();
+  for (const item of data.trainingCatalog) {
+    const key = seseTitleKey(item.title), first = titles.get(key);
+    if (!first) titles.set(key, { ...item });
+    else {
+      aliases.set(item.id, first.id);
+      first.global ||= item.global;
+    }
+  }
+  if (!aliases.size) return data;
+  const idOf = id => aliases.get(id) || id;
+  const ids = list => [...new Set((list || []).map(idOf))];
+  const uniqueLinks = (list, keyOf, valueOf) => {
+    const links = new Map();
+    for (const link of list || []) {
+      const next = { ...link, trainingId: idOf(link.trainingId) }, key = keyOf(next);
+      if (!links.has(key) || valueOf(next) > valueOf(links.get(key))) links.set(key, next);
+    }
+    return [...links.values()];
+  };
+  return { ...data, trainingCatalog: [...titles.values()],
+    trainings: data.trainings.map(item => ({ ...item, templateId: idOf(item.templateId) })),
+    employees: data.employees.map(item => ({ ...item, prerequisiteTrainingIds: ids(item.prerequisiteTrainingIds) })),
+    departments: data.departments.map(item => ({ ...item, prerequisiteTrainingIds: ids(item.prerequisiteTrainingIds),
+      excludedPrerequisiteTrainingIds: ids(item.excludedPrerequisiteTrainingIds), matrixCourseOrder: ids(item.matrixCourseOrder),
+      matrixCourses: uniqueLinks(item.matrixCourses, link => link.trainingId, link => link.demand) })),
+    courseLevels: uniqueLinks(data.courseLevels, link => JSON.stringify([link.employeeId, link.trainingId]), link => link.level),
+    departmentTrainings: uniqueLinks(data.departmentTrainings, link => JSON.stringify([link.departmentId, link.trainingId]), () => 0)
+  };
+}
 function sesePrunePoly(data) {
   if (!data || !Array.isArray(data.departments)) return data;
   const catalog = new Set((data.trainingCatalog || []).map(item => item.id));
@@ -932,9 +973,10 @@ function sesePolyMatrix(data, departmentId) {
   const level = (employee, course) => {
     const slot = employee.id + "|" + course.id;
     const list = records.get(slot) || [];
-    const trained = list.some(item => !item.expiry || item.expiry >= today);
-    const valid = trained || (employee.prerequisiteTrainingIds || []).includes(course.id);
-    const expiry = !valid && list.length ? list.map(item => item.expiry).sort().pop() : "";
+    const latest = seseLatestTraining(list);
+    const trained = latest && (!latest.expiry || latest.expiry >= today);
+    const valid = latest ? trained : (employee.prerequisiteTrainingIds || []).includes(course.id);
+    const expiry = !valid && latest ? latest.expiry : "";
     // N\xEDvel autom\xE1tico pelo tempo desde o primeiro treinamento no curso: até 90 dias = 1, 91 em diante = 2.
     const days = trained ? Math.max(0, -YD(list.map(item => item.date).sort()[0], today)) : null;
     const auto = !valid ? 0 : days === null || days > 90 ? 2 : 1;
@@ -2379,7 +2421,7 @@ function SeseCatalogEditor({
         onSubmit: submit,
         children: /*#__PURE__*/_jsxs("fieldset", {
           disabled: busy,
-          children: [field('title', 'Nome do treinamento *', 'text', true),
+          children: [titleField,
           /*#__PURE__*/_jsxs("div", { className: "sese-global-field", children: [
             /*#__PURE__*/_jsx("button", { type: "button", className: "sese-global-toggle", "aria-pressed": !!form.global, onClick: () => setForm(previous => ({ ...previous, global: !previous.global })), children: form.global ? "✓ Global" : "Global" }),
             /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Ao salvar como Global, este curso aparece como pré-requisito em todos os departamentos atuais e futuros. Isso não registra a realização do curso pelos colaboradores." })
@@ -2553,6 +2595,29 @@ function SeseTrainingFields({
   const template = data.trainingCatalog.find(item => item.id === form.templateId);
   const employee = data.employees.find(item => item.id === form.employeeId);
   const automaticExpiry = Number(template?.validityMonths) > 0;
+  const [searching, setSearching] = Be.useState(false);
+  const query = seseTitleKey(form.title || "");
+  const options = Be.useMemo(() => {
+    const courses = new Map(data.trainingCatalog.map(item => [seseTitleKey(item.title), item]));
+    for (const record of [...data.trainings].sort((a,b) => b.date.localeCompare(a.date))) {
+      const key = seseTitleKey(record.title);
+      if (!courses.has(key)) courses.set(key, { ...record, id: "", validityMonths: 0 });
+    }
+    return [...courses.values()];
+  }, [data]);
+  const selectCourse = item => {
+    setForm(previous => ({ ...previous, templateId: item.id, title: item.title, description: item.description || "",
+      hours: seseFormatDuration(item.hours), tags: item.tags || [], expiry: seseExpiry(previous.date, item.validityMonths) }));
+    setSearching(false);
+  };
+  const h = Be.createElement;
+  const titleField = h("div", {className:"field"}, h("label", null, "Nome do treinamento *",
+    h("input", { required:true, maxLength:140, value:form.title || "", onFocus:()=>setSearching(true),
+      onChange:event=>{ const title=event.target.value; setSearching(true); setForm(previous=>({...previous,title,templateId:"",
+        ...(previous.templateId ? {description:"",tags:[],hours:"",expiry:""} : {})})); } })),
+    searching && query && options.filter(item=>seseTitleKey(item.title).includes(query)).slice(0,10).map(item=>
+      h("button",{type:"button",className:"sese-source",key:item.title,onClick:()=>selectCourse(item)},
+        [item.title,item.description,seseFormatDuration(item.hours), item.validityMonths ? item.validityMonths+" meses de validade" : "", ...(item.tags||[])].filter(Boolean).join(" · "))));
   const changeFlag = (name, checked) => setForm(previous => {
     const next = {
       ...previous,
@@ -3334,7 +3399,7 @@ function Rh() {
     l ? (window.__quapDemoMode = !1, s(!1), t(a), ra()) : (window.__quapDemoMode = !0, o(e), t(lc.parse(uM())), s(!0)), p("all"), G(null), Ht("dashboard");
   }
   async function seseSaveCatalog(item) {
-    if(e.trainingCatalog.some(other=>other.id!==item.id&&seseText(other.title)===seseText(item.title))) throw Error("Já existe um treinamento com esse nome.");
+    if(e.trainingCatalog.some(other=>other.id!==item.id&&seseTitleKey(other.title)===seseTitleKey(item.title))) throw Error("Já existe um treinamento com esse nome.");
     const next=structuredClone(e), record={...item,id:item.id||seseId()};
     next.trainingCatalog=[...next.trainingCatalog.filter(other=>other.id!==record.id),record]; await Ct(next);
   }
@@ -3554,6 +3619,19 @@ function Rh() {
               date: L.date,
               expiry: seseTrainingExpiry(e, L),templateId:L.templateId||"",tags:L.tags||[],internal:!!L.internal,external:!!L.external,homologated:!!L.homologated
             };
+          }
+          if (ne === "training") {
+            const titleKey = seseTitleKey(Me.title);
+            let course = M.trainingCatalog.find(item => item.id === Me.templateId || seseTitleKey(item.title) === titleKey);
+            if (!course) {
+              course = { id:seseId(), title:Me.title, description:Me.description, hours:Me.hours, tags:Me.tags, validityMonths:0, global:false };
+              M.trainingCatalog.push(course);
+            }
+            Me.templateId = course.id;
+            Me.title = course.title;
+            if (!L.templateId && course.validityMonths) Me.expiry = seseExpiry(Me.date, course.validityMonths);
+            if (M.trainings.some(item => item.id !== T && item.employeeId === Me.employeeId && item.date === Me.date && seseRecordCourseKey(M,item) === course.id))
+              throw Error("Este colaborador já possui esse treinamento nessa data.");
           }
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&Me.registration&&(item.registration===Me.registration||item.id==="MAT_"+Me.registration))) throw Error("Já existe um colaborador com essa matrícula.");
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&seseSameName(item.name,Me.name))) throw Error("Já existe um colaborador com esse nome.");
@@ -3953,7 +4031,7 @@ function Rh() {
               children: ["Abrir setores ", (0, A.jsx)(fa, {
                 size: 17
               })]
-            }) : i === "strategy" ? null : i === "employees" ? io("Novo colaborador", () => ot("employee")) : i === "departments" ? io("Novo setor", () => ot("department")) : i === "catalog" ? io("Novo treinamento geral", () => setSeseEdit({})) : i === "trainings" ? io("Registrar treinamento", () => ot("training")) : io("Nova atividade", () => ot("task"))
+            }) : i === "strategy" ? null : i === "employees" ? io("Novo colaborador", () => ot("employee")) : i === "departments" ? io("Novo setor", () => ot("department")) : i === "catalog" ? io("Novo treinamento geral", () => setSeseEdit({})) : i === "trainings" ? io("Registrar realização", () => ot("training")) : io("Nova atividade", () => ot("task"))
           })]
         }), f && !l && (0, A.jsxs)("div", {
           className: "error-banner",
