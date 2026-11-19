@@ -29,6 +29,7 @@
     const includes = (value, query) => normalize(query).trim().split(/\s+/).every(word => normalize(value).includes(word));
     function MatrixTraining({ data, onPerson }) {
       const [search, setSearch] = React.useState('');
+      const [page, setPage] = React.useState(1);
       const groups = React.useMemo(() => {
         const courses = new Map();
         for (const department of data.departments) {
@@ -52,25 +53,40 @@
         });
         return { ...group, sectors };
       }).filter(group => group.sectors.length);
+      const rows = visible.flatMap(group => group.sectors.flatMap(sector =>
+        (sector.people.length ? sector.people : [null]).map(entry => ({ group, sector, entry }))));
+      const pages = Math.max(1, Math.ceil(rows.length / 10));
+      const current = Math.min(page, pages);
+      const shown = new Map();
+      for (const { group, sector, entry } of rows.slice((current - 1) * 10, current * 10)) {
+        if (!shown.has(group)) shown.set(group, new Map());
+        const sectors = shown.get(group);
+        if (!sectors.has(sector)) sectors.set(sector, []);
+        if (entry) sectors.get(sector).push(entry);
+      }
       return h('section', { className: 'panel strategy-result-panel' },
         h('h2', null, 'Colaboradores por curso da matriz'),
-        h('p', null, 'A lista mostra os níveis 1 a 4. A contagem de treinados segue a matriz e considera os níveis 3 e 4 sem afastamento ativo.'),
+        h('p', null, 'A lista mostra os níveis da matriz. O total de treinados inclui treinados e multiplicadores sem afastamento ativo.'),
         h('label', null, 'Buscar curso, nome, matrícula ou departamento',
-          h('input', { type: 'search', value: search, onChange: event => setSearch(event.target.value) })),
+          h('input', { type: 'search', value: search, onChange: event => { setSearch(event.target.value); setPage(1); } })),
         visible.length === 0 && h('p', { role: 'status' }, groups.length ? 'Nenhum resultado para a busca.' : 'Nenhum curso nas matrizes de competências.'),
-        visible.map(group => {
+        [...shown].map(([group, sectors]) => {
           const people = group.sectors.flatMap(sector => sector.people);
-          const trained = people.filter(entry => entry.level >= 3 && !entry.away).length;
-          return h('details', { className: 'strategy-card', key: group.id },
+          const trained = people.filter(entry => entry.level >= (helpers.trainedLevel || 3) && !entry.away).length;
+          return h('details', { className: 'strategy-card', open: true, key: group.id },
             h('summary', null, group.title + ' · Matrizes: ' + group.sectors.length + ' · Com nível registrado: ' + people.length + ' · Treinados: ' + trained),
-            group.sectors.map(({ department, people }) => h('div', { key: department.id },
+            [...sectors].map(([{ department }, people]) => h('div', { key: department.id },
               h('h3', null, department.name),
               people.length ? h('ul', { className: 'strategy-course-list' },
                 people.map(({ person, level, away }) => h('li', { key: person.id },
                   h('button', { type: 'button', className: 'text-link', onClick: () => onPerson(person.id) }, person.name),
                   h('span', null, [person.registration, 'Nível ' + level, away && 'Afastado'].filter(Boolean).join(' · ')))))
                 : h('p', null, 'Curso vinculado à matriz. Nenhum colaborador com nível registrado.'))));
-        }));
+        }),
+        pages > 1 && h('div', { className: 'strategy-pagination' },
+          h('button', { type: 'button', disabled: current === 1, onClick: () => setPage(current - 1) }, 'Anterior'),
+          h('span', null, 'Página ' + current + ' de ' + pages),
+          h('button', { type: 'button', disabled: current === pages, onClick: () => setPage(current + 1) }, 'Próxima')));
     }
     return function SeseStrategy({ data, onDepartment, onPerson }) {
       const [mode, setMode] = React.useState(helpers.matrix ? 'matrix' : 'department');
@@ -78,7 +94,7 @@
       const [employeeId, setEmployeeId] = React.useState('');
       const [search, setSearch] = React.useState('');
       const [resultSearch, setResultSearch] = React.useState('');
-      const [status, setStatus] = React.useState('qualified');
+      const [status, setStatus] = React.useState('all');
       const [availability, setAvailability] = React.useState('all');
       const [page, setPage] = React.useState(1);
       const model = React.useMemo(() => buildModel(data, helpers), [data]);
@@ -98,9 +114,9 @@
         && includes(byDepartment ? row.person.name + ' ' + (row.person.registration || '') + ' ' + (data.departments.find(d => d.id === row.person.departmentId)?.name || '') : row.department.name, resultSearch))
         .sort((a, b) => Number(b.qualified) - Number(a.qualified) || (b.percent || 0) - (a.percent || 0)
           || (byDepartment ? a.person.name.localeCompare(b.person.name, 'pt-BR') : a.department.name.localeCompare(b.department.name, 'pt-BR')));
-      const pages = Math.max(1, Math.ceil(found.length / 20));
+      const pages = Math.max(1, Math.ceil(found.length / 10));
       const currentPage = Math.min(page, pages);
-      const reset = () => { setPage(1); setResultSearch(''); setStatus('qualified'); setAvailability('all'); };
+      const reset = () => { setPage(1); setResultSearch(''); setStatus('all'); setAvailability('all'); };
       const changeMode = next => { setMode(next); setSearch(''); reset(); };
       function exportResults() {
         const table = [['Pessoa', 'Matrícula', 'Departamento consultado', 'Setor atual', 'Cursos válidos / exigidos', 'Qualificação', 'Disponibilidade', 'Cursos pendentes'],
@@ -131,7 +147,7 @@
             h('small', null, `${filteredChoices.length} de ${choices.length} ${byDepartment ? 'departamentos' : 'pessoas'}`),
             h('details', { className: 'strategy-rule' }, h('summary', null, 'Como a qualificação é calculada?'),
               h('p', null, 'É necessário ter todos os cursos exigidos válidos. São considerados os cursos da matriz, os pré-requisitos do departamento e os cursos globais, respeitando as exclusões cadastradas. Cursos registrados no cadastro da pessoa seguem a regra atual do sistema.'),
-              h('p', null, 'Não exige nível 3 ou 4. Afastamento é mostrado separadamente. Um departamento sem requisitos definidos não gera qualificação automática.'))),
+              h('p', null, 'O nível de polivalência é consultado separadamente. Afastamento é mostrado separadamente. Um departamento sem requisitos definidos não gera qualificação automática.'))),
           h('section', { className: 'strategy-results', 'aria-label': 'Resultados da consulta' },
             !selected ? h('div', { className: 'panel strategy-empty' }, h('span', { 'aria-hidden': true }, '⌕'),
               h('h2', null, byDepartment ? 'Quem pode atuar nesta área?' : 'Onde esta pessoa pode atuar?'),
@@ -156,7 +172,7 @@
                   h('button', { type: 'button', className: 'text-link', disabled: !found.length, onClick: exportResults }, 'Exportar consulta')),
                 !found.length ? h('div', { className: 'strategy-no-results' }, h('p', null, 'Nenhum resultado com os filtros selecionados.'),
                   h('button', { className: 'btn outline', type: 'button', onClick: () => { setStatus('all'); setAvailability('all'); setResultSearch(''); setPage(1); } }, 'Ver todos e analisar pendências')) :
-                  h('div', { className: 'strategy-cards' }, found.slice((currentPage - 1) * 20, currentPage * 20).map(row => h('article', { className: 'strategy-card', key: row.person.id + '|' + row.department.id },
+                  h('div', { className: 'strategy-cards' }, found.slice((currentPage - 1) * 10, currentPage * 10).map(row => h('article', { className: 'strategy-card', key: row.person.id + '|' + row.department.id },
                     h('div', { className: 'strategy-card-heading' }, h('div', null,
                       h('h3', null, byDepartment ? row.person.name : row.department.name),
                       byDepartment && h('p', null, `Matrícula ${row.person.registration || '—'} · ${data.departments.find(d => d.id === row.person.departmentId)?.name || 'Sem setor'}`)),
@@ -166,7 +182,7 @@
                     row.percent !== null && h('div', { className: 'strategy-progress', 'aria-hidden': true }, h('i', { style: { width: row.percent + '%' } })),
                     h('div', { className: 'strategy-card-notes' }, h('span', { className: row.away ? 'strategy-warning' : '' }, row.away ? 'Afastado · indisponível no momento' : 'Sem afastamento ativo'),
                       row.refresh && h('span', { className: 'strategy-warning' }, 'Reciclagem após afastamento pendente')),
-                    h('details', null, h('summary', null, row.missing.length ? `Ver ${row.missing.length} curso(s) pendente(s) e requisitos` : 'Ver requisitos e cursos válidos'),
+                    h('details', { open: true }, h('summary', null, row.missing.length ? `Ver ${row.missing.length} curso(s) pendente(s) e requisitos` : 'Ver requisitos e cursos válidos'),
                       !row.courses.length ? h('p', null, 'Defina os cursos exigidos no cadastro do departamento.') : h('ul', { className: 'strategy-course-list' }, row.courses.map(course => h('li', { key: course.id },
                         h('span', null, course.title), h('strong', { className: row.missing.some(item => item.id === course.id) ? 'strategy-warning' : '' }, row.missing.some(item => item.id === course.id) ? 'Pendente ou vencido' : 'Válido'))))),
                     h('div', { className: 'strategy-card-actions' }, h('button', { type: 'button', className: 'text-link', onClick: () => {
