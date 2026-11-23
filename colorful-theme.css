@@ -73,3 +73,39 @@ html[data-theme=colorful] .sese-poly-open-arrow,
 html[data-theme=colorful] .sese-sort-toggle button.active,
 html[data-theme=colorful] .sese-batch-add { color: #613294; }
 html[data-theme=colorful] .sese-batch-list li.is-done .sese-people-avatar { color: #17695e; }
+
+/* Keep the sector picker and search field aligned. */
+.filterbar:has(> .search) {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
+  align-items: stretch;
+}
+.filterbar:has(> .search) > .filter-group {
+  position: relative;
+  flex-wrap: nowrap;
+}
+.filterbar:has(> .search) > .filter-group > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+.filterbar:has(> .search) .filter-group .choice {
+  padding-left: 40px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  align-self: stretch;
+}
+.filterbar > .search {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+@media (max-width: 640px) {
+  .filterbar:has(> .search) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
