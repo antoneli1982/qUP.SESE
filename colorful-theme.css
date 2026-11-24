@@ -109,3 +109,64 @@ html[data-theme=colorful] .sese-batch-list li.is-done .sese-people-avatar { colo
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Size panels against the usable workspace, including the open sidebar. */
+@media screen {
+  #root .workspace {
+    container: qup-workspace / inline-size;
+  }
+  #root .workspace .content {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+  }
+  #root .workspace :is(.page-actions, .top-actions, .excel-actions) {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  #root .workspace :is(.page-heading, .panel-heading, .excel-bar) > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  @container qup-workspace (max-width: 56rem) {
+    #root .topbar {
+      height: auto;
+      min-height: 63px;
+      padding-block: 10px;
+      flex-wrap: wrap;
+    }
+    #root :is(.page-heading, .panel-heading, .excel-bar) {
+      flex-wrap: wrap;
+    }
+    #root .dashboard-middle {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @container qup-workspace (max-width: 38rem) {
+    #root .filterbar:has(> .search),
+    #root .form-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    #root .page-actions {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    }
+    #root :is(.page-actions, .excel-actions) .btn {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    #root .sese-scroll-toolbar {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+    #root .sese-scroll-hint {
+      white-space: normal;
+    }
+  }
+  @container qup-workspace (max-width: 23rem) {
+    #root .metric-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}
