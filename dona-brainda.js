@@ -642,7 +642,7 @@ A Dona Brainda e o painel não saem na impressão.`,
   id: "afastamento", cat: "Afastamentos", title: "Afastamentos e reciclagem",
   k: ["afastamento","afastado","afastada","ferias","licenca","atestado","inss","maternidade","reciclagem","45 dias","retorno","voltou","oculto","escondido","pendente","reciclagem pendente"],
   p: ["como registrar afastamento","pessoa de ferias","reciclagem pendente","45 dias","afastado some da matriz","registrar licenca"],
-  a: `Em **Colaboradores** (ou no histórico da pessoa), abra **Afastamentos e reciclagem** (“Controle de presença na matriz de competências”).
+  a: `Em **Colaboradores**, use **Afastar** ou **Retornar à ativa**. Em **Colaboradores afastados**, escolha uma pessoa ativa para registrar o afastamento ou abra o retorno na linha de quem já está afastado. Pelo histórico, abra **Afastamentos e reciclagem** (“Controle de presença na matriz de competências”).
 
 **Registrar:** informe **Data do início do afastamento** e, se quiser, **Observação**. Enquanto não há data de fim, o status é **“Afastamento em andamento”** e a pessoa fica **oculta** nas matrizes (“Afastado · oculto na matriz”).
 
@@ -662,7 +662,7 @@ Outras regras: só pode haver **um afastamento em andamento**; períodos **não 
 - **some** da **Matriz de cursos**, da **Aptidão por setor** e da **Gestão Estratégica**;
 - **não conta** nos indicadores da **Visão geral** nem no total de “treinados”;
 - **continua** cadastrada, com todo o histórico, e aparece na lista de **Colaboradores** com a etiqueta **“Afastado · oculto na matriz”**;
-- na **Matriz Operacional** a linha permanece, com a **matrícula destacada** (afastado ou reciclagem pendente).
+- fica fora das linhas e das contagens da **Matriz Operacional** até o retorno.
 
 Quando você informa a data de fim, ela volta; se o afastamento passou de **45 dias**, volta com **“Reciclagem pendente”** até a reciclagem ser registrada.`,
   rel: ["afastamento","colab-nao-aparece"]
@@ -704,7 +704,7 @@ Atenção especial na aba **Colaboradores**: as **duas primeiras linhas são ign
 
 **Modo de importação:**
 
-1. **Sincronizar colaboradores** *(padrão quando a planilha tem colaboradores)* — **quem já existe mantém** treinamentos, avaliações, afastamentos e níveis (e recebe os dados novos do cadastro); **quem não está na planilha é eliminado**; **quem é novo é adicionado**. Setores, cursos e matrizes **não são apagados**. A lista dos eliminados aparece **antes de confirmar** e **depois** da importação.
+1. **Atualizar lista de colaboradores** é o modo padrão para uma lista de pessoal. Para cada ativo ausente, escolha **Afastar** ou **Excluir cadastro e histórico**. Se um afastado reaparecer, escolha **Voltar à ativa** ou **Manter afastado**. A ferramenta pede todas as decisões antes de salvar. Quem continua afastado e fora da lista permanece com seu histórico.
 2. **Adicionar / atualizar pelo ID** — atualiza registros com o **mesmo ID** e mantém todos os outros.
 3. **Substituir todos os dados** — troca **tudo** pelo conteúdo da planilha (exige confirmação: **Confirmar substituição**). **Exporte uma cópia antes.**
 
@@ -792,7 +792,7 @@ Quando o cadastro difere da lista aparece o banner **“Lista oficial …”** c
 - **baixa um backup Excel** antes de gravar;
 - mostra o resumo **“Lista oficial aplicada”**.
 
-⚠️ Pela configuração atual, a ferramenta **tenta aplicar isso automaticamente ao abrir** (uma vez por versão da lista; só grava para quem tem permissão de edição). Se ficar alguém “sumido” depois, confira o **backup Excel baixado** e o resumo da aplicação.`,
+A lista histórica só é aplicada por uma ação manual. Para atualizar a equipe com uma planilha nova, use **Importar Excel**.`,
   rel: ["excel-importar","colab-excluir","excel-exportar"]
 },
 
@@ -808,7 +808,7 @@ Quando o cadastro difere da lista aparece o banner **“Lista oficial …”** c
 3. **Filtros:** em **Filtrar setor** deixe “Todos os setores” e limpe a busca.
 4. **Paginação:** use **Itens por página** (50/100) ou a pesquisa.
 5. **Matriz de aptidão:** só entram pessoas que têm **ao menos um curso** registrado.
-6. **Lista oficial / sincronização:** se rodou uma sincronização ou a lista oficial, quem não estava na planilha/lista foi **eliminado** (veja o resumo e o backup Excel).
+6. **Importação de colaboradores:** confira a página **Colaboradores afastados** e a escolha feita ao atualizar a lista. A exclusão confirmada remove o histórico.
 
 Se nada disso explicar, atualize os dados (**Atualizar dados**) — outra pessoa pode ter alterado o cadastro.`,
   rel: ["afastamento-efeitos","lista-oficial","colab-trocar-setor"]
