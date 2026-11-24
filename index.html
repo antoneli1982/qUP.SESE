@@ -601,7 +601,7 @@ var Br = We.string().min(1).max(100),
   ZA = We.string().trim().min(1).max(140),
   Eh = We.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(e => !Number.isNaN(Date.parse(e)) && new Date(e).toISOString().slice(0, 10) === e, "Data inv\xE1lida"),
   lc = We.object({
-    history: We.array(We.object({at:We.string(),action:We.string(),subject:We.string(),detail:We.string()})).optional(),
+    history: We.array(We.object({at:We.string(),action:We.string(),subject:We.string(),detail:We.string(),group:We.string().optional(),recordKey:We.string().optional()})).optional(),
     historyStarted: We.boolean().optional(),
     trainingCatalog: We.array(We.object({id:Br,title:ZA,global:We.boolean().default(false),description:We.string().max(3000),hours:We.number().positive().max(10000).nullable().default(null),validityMonths:We.number().int().min(0).max(1200).default(0),tags:We.array(We.string().trim().min(1).max(60)).max(30).default([])})).max(10000).default([]),
     departmentTrainings: We.array(We.object({id:Br,departmentId:Br,trainingId:Br})).max(20000).default([]),
@@ -764,12 +764,20 @@ function historySubject(row,index) {
   return [index.get(row.employeeId),row.registration,row.name || row.title,index.get(row.trainingId),index.get(row.taskId),index.get(row.departmentId)].filter(Boolean).join(" · ");
 }
 function historyLegacy(data,index) {
-  return (data.trainings || []).map(row => ({ at:"", action:"Registro anterior", subject:historySubject(row,index), detail:"Realização: " + historyValue(row.date,index) + (row.expiry ? " · Vencimento: " + historyValue(row.expiry,index) : "") }));
+  return (data.trainings || []).map(row => ({ at:"", group:"trainings", recordKey:row.id, action:"Registro anterior", subject:historySubject(row,index), detail:"Realização: " + historyValue(row.date,index) + (row.expiry ? " · Vencimento: " + historyValue(row.expiry,index) : "") }));
+}
+function historyRowKey(row) {
+  return row.id || JSON.stringify([row.employeeId,row.taskId || row.trainingId]);
+}
+function historyGroup(event) {
+  if (event.group) return event.group;
+  if (event.action === "Registro anterior") return "trainings";
+  return Object.keys(historyCollections).find(group => event.action.endsWith(" · " + historyCollections[group]));
 }
 function historyRecord(before,after) {
   const oldIndex = historyIndex(before), newIndex = historyIndex(after);
   const events = [], at = new Date().toISOString();
-  const rowKey = row => row.id || JSON.stringify([row.employeeId,row.taskId || row.trainingId]);
+  const rowKey = historyRowKey;
   for (const [group,label] of Object.entries(historyCollections)) {
     const previous = new Map((before[group] || []).map(row => [rowKey(row),row]));
     const current = new Map((after[group] || []).map(row => [rowKey(row),row]));
@@ -779,15 +787,45 @@ function historyRecord(before,after) {
       if (old && next && !fields.length) continue;
       const action = (!next ? "Exclusão" : !old ? "Inclusão" : "Alteração") + " · " + label;
       const detail = fields.map(field => (historyFields[field] || field) + ": " + (old && next ? historyValue(old[field],oldIndex) + " → " + historyValue(next[field],newIndex) : historyValue(row[field],next ? newIndex : oldIndex))).join(" · ");
-      events.push({at,action,subject:historySubject(row,next ? newIndex : oldIndex),detail});
+      events.push({at,action,group,recordKey:key,subject:historySubject(row,next ? newIndex : oldIndex),detail});
     }
   }
   after.history = [...(before.history ?? (before.historyStarted ? [] : historyLegacy(before,oldIndex))),...events];
   after.historyStarted = true;
 }
-function SeseHistory({data}) {
+function SeseHistory({data,onEdit,onLevel,busy}) {
   const h = Be.createElement;
   const [query,setQuery] = Be.useState(""), [order,setOrder] = Be.useState("desc"), [page,setPage] = Be.useState(1);
+  const [selection,setSelection] = Be.useState(null);
+  const index = Be.useMemo(() => historyIndex(data),[data]);
+  function editControl(event) {
+    const group = historyGroup(event);
+    const records = group && Array.isArray(data[group]) ? data[group] : [];
+    const removed = event.action.startsWith("Exclusão");
+    const picking = selection?.index === event.index;
+    const row = records.find(item => historyRowKey(item) === (event.recordKey || (picking && selection.key)));
+    if (removed || !records.length || (event.recordKey && !row)) return h("small",null,"Cadastro excluído ou indisponível");
+    const choose = () => {
+      if (row && group !== "courseLevels") { onEdit(group,row); return; }
+      const matches = row ? [row] : records.filter(item => historySubject(item,index) === event.subject &&
+        (event.action !== "Registro anterior" || historyLegacy({trainings:[item]},index)[0].detail === event.detail));
+      const suggested = matches.length === 1 ? matches[0] : null;
+      setSelection({index:event.index,key:suggested ? historyRowKey(suggested) : "",level:group==="courseLevels" && suggested ? seseDisplayCourseLevel(suggested.level) : 0});
+    };
+    if (!picking) return h("button",{type:"button",className:"btn outline",disabled:busy,onClick:choose,"aria-label":"Editar " + event.subject},"Editar");
+    return h("div",{className:"actions"},
+      !event.recordKey && h("label",{className:"field"},"Confirme o cadastro deste movimento antigo",h("select",{value:selection.key,onChange:e=>{
+        const key=e.target.value, item=records.find(r=>historyRowKey(r)===key);
+        setSelection({...selection,key,level:group==="courseLevels" && item ? seseDisplayCourseLevel(item.level) : 0});
+      }},h("option",{value:""},"Selecionar cadastro"),records.map(item=>h("option",{key:historyRowKey(item),value:historyRowKey(item)},[historySubject(item,index),historyValue(item.date || item.startDate || "",index).replace("(vazio)",""),historyRowKey(item)].filter(Boolean).join(" · "))))),
+      group==="courseLevels" && row && h("label",{className:"field"},"Nível de competência",h("select",{value:selection.level,onChange:e=>setSelection({...selection,level:Number(e.target.value)})},[0,1,2,3].map(n=>h("option",{key:n,value:n},String(n))))),
+      h("button",{type:"button",className:"btn primary",disabled:busy || !row,onClick:async()=>{
+        if (group==="courseLevels") { if (!await onLevel(row.employeeId,row.trainingId,selection.level)) return; }
+        else onEdit(group,row);
+        setSelection(null);
+      }},group==="courseLevels" ? "Salvar nível" : "Abrir cadastro"),
+      h("button",{type:"button",className:"btn",onClick:()=>setSelection(null)},"Cancelar"));
+  }
   const rows = Be.useMemo(() => {
     const source = data.history ?? (data.historyStarted ? [] : historyLegacy(data,historyIndex(data)));
     const tokens = seseText(query).split(/\s+/).filter(Boolean);
@@ -802,7 +840,7 @@ function SeseHistory({data}) {
       h("option",{value:"desc"},"Mais novo para o mais antigo"),h("option",{value:"asc"},"Mais antigo para o mais novo")))),
     h("p",{className:"muted"},rows.length+" movimentações"),
     rows.slice((current-1)*10,current*10).map(event=>h("article",{key:event.index,style:{padding:"12px 0",borderTop:"1px solid currentColor",overflowWrap:"anywhere"}},
-      h("small",null,event.stamp),h("h3",null,event.action),h("strong",null,event.subject),h("p",null,event.detail))),
+      h("small",null,event.stamp),h("h3",null,event.action),h("strong",null,event.subject),h("p",null,event.detail),editControl(event))),
     !rows.length && h("p",null,"Nenhuma movimentação encontrada."),
     pages>1 && h("div",{className:"sese-pager"},h("button",{className:"btn",disabled:current===1,onClick:()=>setPage(current-1)},"Anterior"),h("span",null,current+" de "+pages),h("button",{className:"btn",disabled:current===pages,onClick:()=>setPage(current+1)},"Próxima")));
 }
@@ -4677,7 +4715,13 @@ function Rh() {
                 action: io("Novo setor", () => ot("department"))
               })
             })]
-          }), i === "history" && Be.createElement(SeseHistory,{data:e}), i === "trainings" && (0, A.jsxs)(A.Fragment, {
+          }), i === "history" && Be.createElement(SeseHistory,{data:e,busy:v||(!l&&(d||!!f)),onLevel:sesePolySaveLevel,onEdit:(group,row)=>{
+            if(group==="trainingCatalog") return setSeseEdit(row);
+            if(group==="absences") return setSeseAbsenceId(row.employeeId);
+            if(group==="departmentTrainings") return ot("department",row.departmentId);
+            if(group==="evaluations") return ot("evaluation",undefined,{employeeId:row.employeeId,taskId:row.taskId,date:row.date,level:String(row.level)});
+            ot(({employees:"employee",departments:"department",tasks:"task",trainings:"training"})[group],row.id);
+          }}), i === "trainings" && (0, A.jsxs)(A.Fragment, {
             children: [(0, A.jsxs)("div", {
               className: "training-filters",
               children: [(0, A.jsx)(Kl, {
