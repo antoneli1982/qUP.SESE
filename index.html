@@ -611,7 +611,8 @@ var Br = We.string().min(1).max(100),
       matrixVerifiedBy: We.string().max(140).default(""),
       matrixApprovedBy: We.string().max(140).default(""),
       matrixIssueDate: We.string().max(20).default(""),
-      matrixRevisionDate: We.string().max(20).default("")
+      matrixRevisionDate: We.string().max(20).default(""),
+      managerIds: We.array(Br).max(50).default([])
     })).max(200).transform(items => [...items].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true }))),
     courseLevels: We.array(We.object({ employeeId: Br, trainingId: Br, level: We.number().int().min(0).max(4) })).max(200000).default([]),
     employees: We.array(We.object({
@@ -936,7 +937,7 @@ function sesePrunePoly(data) {
     ...data,
     departments: data.departments.map(item => {
       const seen = new Set();
-      return { ...item, matrixCourses: (item.matrixCourses || []).filter(link => catalog.has(link.trainingId) && !seen.has(link.trainingId) && seen.add(link.trainingId)) };
+      return { ...item, managerIds: [...new Set((item.managerIds || []).filter(id => people.has(id)))], matrixCourses: (item.matrixCourses || []).filter(link => catalog.has(link.trainingId) && !seen.has(link.trainingId) && seen.add(link.trainingId)) };
     }),
     courseLevels: (data.courseLevels || []).filter(item => catalog.has(item.trainingId) && people.has(item.employeeId) && !seenLevels.has(item.employeeId + "|" + item.trainingId) && seenLevels.add(item.employeeId + "|" + item.trainingId))
   };
@@ -1288,7 +1289,7 @@ function uM() {
   })), t;
 }
 var cM = {
-  Departamentos: ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito", "Matriz_Elaborado_Por", "Matriz_Verificado_Por", "Matriz_Aprovado_Por", "Matriz_Data_Emissao", "Matriz_Data_Revisao"],
+  Departamentos: ["ID", "Nome", "Descricao", "Cursos_Pre_Requisito", "Matriz_Elaborado_Por", "Matriz_Verificado_Por", "Matriz_Aprovado_Por", "Matriz_Data_Emissao", "Matriz_Data_Revisao", "Gestores"],
   Atividades: ["ID", "ID_Departamento", "Nome", "Descricao"],
   Colaboradores: ["Matrícula", "Nome", "Admissão", "Cargo Atual", "Turno", "Departamento", "Responsável", "ID", "ID_Departamento", "Cursos_Pre_Requisito"],
   Avaliacoes: ["ID_Colaborador", "ID_Atividade", "Nivel_Percentual", "Data"],
@@ -1304,7 +1305,7 @@ function UD(e, t = !1) {
   let a = t ? Bn() : e,
     o = XLSX.utils.book_new(),
     r = {
-      Departamentos: a.departments.map(s => [s.id, s.name, s.description, (s.prerequisiteTrainingIds || []).join(";"), ...SESE_POLY_COLUMNS.map(([, key]) => s[key] || "")]),
+      Departamentos: a.departments.map(s => [s.id, s.name, s.description, (s.prerequisiteTrainingIds || []).join(";"), ...SESE_POLY_COLUMNS.map(([, key]) => s[key] || ""), (s.managerIds || []).join(";")]),
       Matriz_Departamentos: a.departments.flatMap(s => (s.matrixCourses || []).map(link => [s.id, link.trainingId, link.demand || 0])),
       Niveis_Cursos: (a.courseLevels || []).map(s => [s.employeeId, s.trainingId, seseDisplayCourseLevel(s.level)]),
       Atividades: a.tasks.map(s => [s.id, s.departmentId, s.name, s.description]),
@@ -1575,6 +1576,7 @@ function QD(e) {
           description: At(f.Descricao),
           prerequisiteTrainingIds: u.includes("Cursos_Pre_Requisito") ? seseIdList(f.Cursos_Pre_Requisito) : [],
           ...(u.includes("Cartas_Versatilidade") ? { versatilityCards: String(f.Cartas_Versatilidade ?? "").split(";").map(card => card.trim()).filter(Boolean) } : {}),
+          ...(u.includes("Gestores") ? { managerIds: seseIdList(f.Gestores) } : {}),
           ...Object.fromEntries(SESE_POLY_COLUMNS.filter(([column]) => u.includes(column)).map(([column, key]) => [key, column.includes("Data") ? yh(f[column], true) : At(f[column])]))
         }), n === "Atividades" && (m = {
           id: At(f.ID),
@@ -1858,7 +1860,7 @@ function seseOfficialPlan(current) {
   const removedDepartments = departments.filter(item => !keepDepartment(item));
   const goneDepartments = new Set(removedDepartments.map(item => item.id));
   const goneTasks = new Set(current.tasks.filter(item => goneDepartments.has(item.departmentId)).map(item => item.id));
-  const data = { ...current, departments: departments.filter(item => !goneDepartments.has(item.id)), tasks: current.tasks.filter(item => !goneTasks.has(item.id)), departmentTrainings: current.departmentTrainings.filter(item => !goneDepartments.has(item.departmentId)), employees, trainings, evaluations: [...evaluationSlots.values()].filter(item => !goneTasks.has(item.taskId)), courseLevels: [...levelSlots.values()], absences };
+  const data = { ...current, departments: departments.filter(item => !goneDepartments.has(item.id)).map(item => ({ ...item, managerIds: [...new Set((item.managerIds || []).map(id => keep(id) || id))] })), tasks: current.tasks.filter(item => !goneTasks.has(item.id)), departmentTrainings: current.departmentTrainings.filter(item => !goneDepartments.has(item.departmentId)), employees, trainings, evaluations: [...evaluationSlots.values()].filter(item => !goneTasks.has(item.taskId)), courseLevels: [...levelSlots.values()], absences };
   const plan = {
     data,
     total: list.length,
@@ -3215,6 +3217,25 @@ function SeseAbsenceEditor({
   });
 }
 
+// Lista de seleção com "+" para incluir mais itens (gestores do setor / áreas geridas pelo colaborador).
+function SeseMultiPicker({ label, hint, addLabel, placeholder, value = [], onChange, options = [] }) {
+  const [rows, setRows] = Be.useState(() => value.length ? value : []);
+  Be.useEffect(() => { const filled = rows.filter(Boolean); if (filled.length !== value.length || filled.some((id, index) => id !== value[index])) setRows(value.length ? value : []); }, [value.join("|")]);
+  const update = next => { setRows(next); onChange([...new Set(next.filter(Boolean))]); };
+  const shown = rows.length ? rows : [""];
+  return /*#__PURE__*/_jsxs("div", { className: "field sese-multi", children: [
+    /*#__PURE__*/_jsx("span", { className: "sese-multi-label", children: label }),
+    shown.map((id, index) => /*#__PURE__*/_jsxs("div", { className: "sese-multi-row", children: [
+      /*#__PURE__*/_jsxs("select", { "aria-label": label + " " + (index + 1), value: id, onChange: event => { const next = [...shown]; next[index] = event.target.value; update(next); }, children: [
+        /*#__PURE__*/_jsx("option", { value: "", children: placeholder }),
+        options.filter(option => option.id === id || !shown.includes(option.id)).map(option => /*#__PURE__*/_jsx("option", { value: option.id, children: option.name }, option.id))
+      ] }),
+      (shown.length > 1 || id) && /*#__PURE__*/_jsx("button", { type: "button", className: "icon-button danger sese-multi-remove", "aria-label": "Remover", title: "Remover", onClick: () => update(shown.filter((_, i) => i !== index)), children: "\u00D7" })
+    ] }, index)),
+    /*#__PURE__*/_jsx("button", { type: "button", className: "btn outline sese-multi-add", disabled: !shown[shown.length - 1] || shown.length >= options.length, onClick: () => setRows([...shown, ""]), children: addLabel }),
+    hint && /*#__PURE__*/_jsx("span", { className: "form-hint", children: hint })
+  ] });
+}
 function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, recordedIds = [], onRegister, department = false, excluded = [], onExcludedChange = () => {} }) {
   const [query, setQuery] = Be.useState("");
   const options = [...data.trainingCatalog].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
@@ -3578,6 +3599,8 @@ function Rh() {
     if ((S === "department" || S === "employee") && Me && (!Array.isArray(Me.prerequisiteTrainingIds) || (S === "department" && !Me.prerequisiteTrainingIds.length))) st.prerequisiteTrainingIds = S === "department" ? seseDepartmentPrerequisiteIds(e, Me.id, false) : [];
     if (S === "training" && Me) st.hours = seseFormatDuration(Me.hours);
     if (S === "department") st.versatilityCards = (Me?.versatilityCards || []).map(card => ({ o: card, v: card }));
+    if (S === "department") st.managerIds = [...(Me?.managerIds || [])];
+    if (S === "employee") st.managedDepartmentIds = M ? e.departments.filter(item => (item.managerIds || []).includes(M)).map(item => item.id) : [];
     H({
       departmentId: C !== "all" ? C : e.departments[0]?.id || "",
       employeeId: S === "training" ? "" : e.employees[0]?.id || "",
@@ -3630,7 +3653,7 @@ function Rh() {
               } : {})
             };
             if (ne === "task") delete Me.prerequisiteTrainingIds;
-            if (ne === "department") { Me.versatilityCards = []; Me.excludedPrerequisiteTrainingIds = L.excludedPrerequisiteTrainingIds || []; }
+            if (ne === "department") { Me.versatilityCards = []; Me.excludedPrerequisiteTrainingIds = L.excludedPrerequisiteTrainingIds || []; Me.managerIds = [...new Set((L.managerIds || []).filter(id => id && e.employees.some(person => person.id === id)))]; }
           }
           if (ne === "employee" && (Me = {
             id: T,
@@ -3673,6 +3696,14 @@ function Rh() {
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&seseSameName(item.name,Me.name))) throw Error("Já existe um colaborador com esse nome.");
           let st = Mh[ne];
           M[st] = [...M[st].filter(It => It.id !== T), ne === "department" ? { ...(M[st].find(It => It.id === T) || {}), ...Me } : Me];
+          if (ne === "employee") {
+            const managed = new Set((L.managedDepartmentIds || []).filter(Boolean));
+            M.departments = M.departments.map(item => {
+              const has = (item.managerIds || []).includes(T);
+              if (managed.has(item.id) === has) return item;
+              return { ...item, managerIds: managed.has(item.id) ? [...(item.managerIds || []), T] : (item.managerIds || []).filter(id => id !== T) };
+            });
+          }
           if (ne === "department") {
             M.departmentTrainings = M.departmentTrainings.filter(link => link.departmentId !== T);
             for (const trainingId of Me.prerequisiteTrainingIds || []) M.departmentTrainings.push({ id: seseId(), departmentId: T, trainingId });
@@ -4467,6 +4498,9 @@ function Rh() {
                 }), (0,A.jsxs)("span",{className:"sese-poly-top",children:[(0,A.jsxs)("button",{type:"button",className:"icon-button sese-people-button","aria-label":"Ver quem est\xE1 no setor "+S.name,title:"Quem est\xE1 no setor",onClick:()=>setSesePeopleDept(S.id),children:[(0,A.jsx)(SesePersonIcon,{size:18}),(0,A.jsx)("span",{className:"sese-people-count",children:e.employees.filter(M=>M.departmentId===S.id).length})]}),(0,A.jsx)("button",{type:"button",className:"icon-button sese-poly-top-button","aria-label":"Abrir a matriz de compet\xEAncia de "+S.name,title:"Matriz de Compet\xEAncia",onClick:()=>sesePolyGo(S.id),children:(0,A.jsx)(dn,{size:18})}), Wl("department", S.id, S.name)]})]
               }), (0, A.jsx)("h2", {
                 children: S.name
+              }), (0, A.jsxs)("p", {
+                className: "sese-dept-manager",
+                children: [(0, A.jsx)("strong", { children: "Gestor da área: " }), (S.managerIds || []).map(id => e.employees.find(person => person.id === id)?.name).filter(Boolean).join(", ") || "não definido"]
               }), (0, A.jsx)("p", {
                 children: S.description || "Sem descri\xE7\xE3o."
               }), (0, A.jsxs)("div", {
@@ -4626,8 +4660,8 @@ function Rh() {
                 className: "form-hint",
                 children: "Cadastre um setor primeiro."
               })]
-            }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do setor *" : "Nome *"), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
-              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), recordedIds: b.id ? e.trainings.filter(record => record.employeeId === b.id).map(record => seseRecordCourseKey(e, record)) : [], onRegister: b.id ? registerEmployeeCourse : undefined, label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: b.id ? "Os cursos já cadastrados estão marcados. Marque um curso que falta para preencher o treinamento." : "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
+            }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do setor *" : "Nome *"), b?.kind === "department" && (0, A.jsx)(SeseMultiPicker, { label: "Gestor da área", hint: "Escolha na lista de colaboradores. Use + para incluir outro gestor.", addLabel: "+ Adicionar gestor", placeholder: "Selecione o colaborador", value: L.managerIds || [], onChange: value => H(previous => ({ ...previous, managerIds: value })), options: [...e.employees].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })).map(item => ({ id: item.id, name: item.name + (item.registration ? " · " + item.registration : "") + " — " + (e.departments.find(d => d.id === item.departmentId)?.name || "sem setor") })) }), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
+              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), (0, A.jsx)(SeseMultiPicker, { label: "Gestor das áreas", hint: "Deixe vazio se o colaborador não é gestor. Use + para adicionar mais áreas.", addLabel: "+ Adicionar área", placeholder: "Selecione o setor", value: L.managedDepartmentIds || [], onChange: value => H(previous => ({ ...previous, managedDepartmentIds: value })), options: [...e.departments].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true })).map(item => ({ id: item.id, name: item.name })) }), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), recordedIds: b.id ? e.trainings.filter(record => record.employeeId === b.id).map(record => seseRecordCourseKey(e, record)) : [], onRegister: b.id ? registerEmployeeCourse : undefined, label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: b.id ? "Os cursos já cadastrados estão marcados. Marque um curso que falta para preencher o treinamento." : "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
                 className: "form-hint",
                 children: "Ao salvar, o colaborador passa para a matriz do novo setor, com os pré-requisitos e pendências dessa área. Seus treinamentos e níveis por curso são preservados."
               })]
@@ -5198,7 +5232,7 @@ html.sese-poly-printing,html.sese-poly-printing body{background:#fff!important;h
 html.sese-poly-printing body>:not(#sese-poly-print){display:none!important}
 html.sese-poly-printing #sese-poly-print{display:block;page:sesePoly}
 }
-</style><style id="sese-sync-style">
+</style><style id="sese-manager-style">.sese-multi{display:grid;gap:8px}.sese-multi-label{font-size:14px;font-weight:500}.sese-multi-row{display:flex;gap:8px;align-items:center}.sese-multi-row select{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--ui-border,#cbd8e9);border-radius:8px;background:var(--card,#fff);color:inherit;font:inherit}.sese-multi-remove{min-width:34px;min-height:34px;font-size:18px;line-height:1}.sese-multi-add{justify-self:start}.sese-dept-manager{font-size:13px;margin:4px 0 6px;color:var(--muted-foreground)}.sese-dept-manager strong{color:var(--foreground)}</style><style id="sese-sync-style">
 .sese-sync{display:grid;gap:.75rem;margin:.25rem 0 .75rem}
 .sese-sync-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .sese-sync-counts>div{border:1px solid var(--ui-border,#e2e8f0);border-radius:8px;padding:.5rem .75rem;display:grid;gap:2px}
