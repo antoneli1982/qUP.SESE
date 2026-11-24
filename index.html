@@ -601,6 +601,8 @@ var Br = We.string().min(1).max(100),
   ZA = We.string().trim().min(1).max(140),
   Eh = We.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(e => !Number.isNaN(Date.parse(e)) && new Date(e).toISOString().slice(0, 10) === e, "Data inv\xE1lida"),
   lc = We.object({
+    history: We.array(We.object({at:We.string(),action:We.string(),subject:We.string(),detail:We.string()})).optional(),
+    historyStarted: We.boolean().optional(),
     trainingCatalog: We.array(We.object({id:Br,title:ZA,global:We.boolean().default(false),description:We.string().max(3000),hours:We.number().positive().max(10000).nullable().default(null),validityMonths:We.number().int().min(0).max(1200).default(0),tags:We.array(We.string().trim().min(1).max(60)).max(30).default([])})).max(10000).default([]),
     departmentTrainings: We.array(We.object({id:Br,departmentId:Br,trainingId:Br})).max(20000).default([]),
     absences: We.array(We.object({id:Br,employeeId:Br,startDate:Eh,endDate:We.union([Eh,We.literal("")]),reason:We.string().max(1000).default(""),recycled:We.boolean().default(false),recycledDate:We.union([Eh,We.literal("")]).default("")}).refine(item=>item.startDate<=Xo()&&(!item.endDate||(item.endDate>=item.startDate&&item.endDate<=Xo())),"Confira as datas do afastamento.").refine(item=>!item.recycled||(!!item.endDate&&!!item.recycledDate&&item.recycledDate>=item.endDate&&item.recycledDate<=Xo()),"A reciclagem exige um afastamento encerrado e uma data válida.")).max(20000).default([]),
@@ -736,6 +738,75 @@ function seseDepartmentPrerequisiteIds(data, departmentId, includeGlobal = true)
   return [...new Set([...ids, ...legacy, ...globals])].filter(id => !(department?.excludedPrerequisiteTrainingIds || []).includes(id) && data.trainingCatalog.some(item => item.id === id));
 }
 // Identifica o curso de um treinamento realizado: o vínculo com o catálogo ou, na falta dele, o mesmo título.
+const historyCollections = {
+  trainings: "Realização de treinamento", trainingCatalog: "Cadastro de treinamento",
+  employees: "Colaborador", departments: "Setor", tasks: "Atividade",
+  evaluations: "Avaliação", absences: "Afastamento", departmentTrainings: "Treinamento do setor", courseLevels: "Nível de competência"
+};
+const historyFields = {
+  name:"Nome",title:"Treinamento",description:"Descrição",hours:"Horas",date:"Realização",expiry:"Vencimento",registration:"Matrícula",vwBadge:"Chapa VW",employeeId:"Colaborador",templateId:"Curso",trainingId:"Curso",departmentId:"Setor",taskId:"Atividade",level:"Nível",validityMonths:"Validade em meses",tags:"Tags",internal:"Interno",external:"Externo",homologated:"Homologado",global:"Global",role:"Cargo",shift:"Turno",responsible:"Responsável",admissionDate:"Admissão",versatility:"Versatilidade",reason:"Motivo",startDate:"Início",endDate:"Retorno",recycled:"Reciclagem",recycledDate:"Data de reciclagem",prerequisiteTrainingIds:"Pré-requisitos",excludedPrerequisiteTrainingIds:"Pré-requisitos removidos",extraDepartmentIds:"Setores adicionais",matrixCourses:"Cursos da matriz",matrixCourseOrder:"Ordem dos cursos",versatilityCards:"Cartões de versatilidade"
+};
+function historyIndex(data) {
+  const index = new Map();
+  for (const group of ["departments","employees","tasks","trainingCatalog"]) {
+    for (const item of data[group] || []) index.set(item.id, item.name || item.title);
+  }
+  return index;
+}
+function historyValue(value, index) {
+  if (Array.isArray(value)) return value.map(item => historyValue(item,index)).join(", ");
+  if (value && typeof value === "object") return Object.entries(value).map(([key,v]) => (historyFields[key] || key) + ": " + historyValue(v,index)).join(", ");
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "string" && /^\d{4}-\d\d-\d\d$/.test(value)) return value.split("-").reverse().join("/");
+  return index.get(value) || String(value ?? "") || "(vazio)";
+}
+function historySubject(row,index) {
+  return [index.get(row.employeeId),row.registration,row.name || row.title,index.get(row.trainingId),index.get(row.taskId),index.get(row.departmentId)].filter(Boolean).join(" · ");
+}
+function historyLegacy(data,index) {
+  return (data.trainings || []).map(row => ({ at:"", action:"Registro anterior", subject:historySubject(row,index), detail:"Realização: " + historyValue(row.date,index) + (row.expiry ? " · Vencimento: " + historyValue(row.expiry,index) : "") }));
+}
+function historyRecord(before,after) {
+  const oldIndex = historyIndex(before), newIndex = historyIndex(after);
+  const events = [], at = new Date().toISOString();
+  const rowKey = row => row.id || JSON.stringify([row.employeeId,row.taskId || row.trainingId]);
+  for (const [group,label] of Object.entries(historyCollections)) {
+    const previous = new Map((before[group] || []).map(row => [rowKey(row),row]));
+    const current = new Map((after[group] || []).map(row => [rowKey(row),row]));
+    for (const key of new Set([...previous.keys(),...current.keys()])) {
+      const old = previous.get(key), next = current.get(key), row = next || old;
+      const fields = Object.keys(row).filter(field => field !== "id" && (old && next ? JSON.stringify(old[field]) !== JSON.stringify(next[field]) : row[field] != null && row[field] !== "" && row[field] !== false && (!Array.isArray(row[field]) || row[field].length)));
+      if (old && next && !fields.length) continue;
+      const action = (!next ? "Exclusão" : !old ? "Inclusão" : "Alteração") + " · " + label;
+      const detail = fields.map(field => (historyFields[field] || field) + ": " + (old && next ? historyValue(old[field],oldIndex) + " → " + historyValue(next[field],newIndex) : historyValue(row[field],next ? newIndex : oldIndex))).join(" · ");
+      events.push({at,action,subject:historySubject(row,next ? newIndex : oldIndex),detail});
+    }
+  }
+  after.history = [...(before.history ?? (before.historyStarted ? [] : historyLegacy(before,oldIndex))),...events];
+  after.historyStarted = true;
+}
+function SeseHistory({data}) {
+  const h = Be.createElement;
+  const [query,setQuery] = Be.useState(""), [order,setOrder] = Be.useState("desc"), [page,setPage] = Be.useState(1);
+  const rows = Be.useMemo(() => {
+    const source = data.history ?? (data.historyStarted ? [] : historyLegacy(data,historyIndex(data)));
+    const tokens = seseText(query).split(/\s+/).filter(Boolean);
+    return source.map((event,index) => ({...event,index,stamp:event.at ? new Date(event.at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}) : "Lançamento sem data conhecida"}))
+      .filter(event => { const entry = seseText([event.stamp,event.action,event.subject,event.detail].join(" ")); return tokens.every(token => entry.includes(token)); })
+      .sort((a,b) => !a.at || !b.at ? Number(!a.at)-Number(!b.at) || a.index-b.index : (order === "desc" ? -1 : 1)*(a.at.localeCompare(b.at) || a.index-b.index));
+  },[data,query,order]);
+  const pages = Math.max(1,Math.ceil(rows.length/10)), current = Math.min(page,pages);
+  return h("section",{className:"panel"},h("div",{className:"training-filters"},
+    h("label",{className:"search"},h("input",{value:query,"aria-label":"Pesquisar movimentações",placeholder:"Pesquisar curso, pessoa, data ou alteração…",onChange:e=>{setQuery(e.target.value);setPage(1);}})),
+    h("label",{className:"field"},"Ordem das movimentações",h("select",{value:order,onChange:e=>{setOrder(e.target.value);setPage(1);}},
+      h("option",{value:"desc"},"Mais novo para o mais antigo"),h("option",{value:"asc"},"Mais antigo para o mais novo")))),
+    h("p",{className:"muted"},rows.length+" movimentações"),
+    rows.slice((current-1)*10,current*10).map(event=>h("article",{key:event.index,style:{padding:"12px 0",borderTop:"1px solid currentColor",overflowWrap:"anywhere"}},
+      h("small",null,event.stamp),h("h3",null,event.action),h("strong",null,event.subject),h("p",null,event.detail))),
+    !rows.length && h("p",null,"Nenhuma movimentação encontrada."),
+    pages>1 && h("div",{className:"sese-pager"},h("button",{className:"btn",disabled:current===1,onClick:()=>setPage(current-1)},"Anterior"),h("span",null,current+" de "+pages),h("button",{className:"btn",disabled:current===pages,onClick:()=>setPage(current+1)},"Próxima")));
+}
+
 function seseRecordCourseKey(data, record) {
   if (record.templateId && data.trainingCatalog.some(item => item.id === record.templateId)) return record.templateId;
   const sameTitle = data.trainingCatalog.find(item => seseTitleKey(item.title) === seseTitleKey(record.title));
@@ -2068,8 +2139,8 @@ var A = B(le(), 1),
     label: "Cadastro de treinamentos",
     icon: Ys
   }, {
-    id: "trainings",
-    label: "Treinamentos realizados",
+    id: "history",
+    label: "Histórico",
     icon: Fs
   }],
   fM = {
@@ -2078,7 +2149,7 @@ var A = B(le(), 1),
     employees: "Colaboradores",
     away: "Colaboradores afastados",
     departments: "Setores",
-    trainings: "Treinamentos realizados", catalog:"Cadastro de treinamentos"
+    history: "Histórico", trainings: "Consulta de treinamentos", catalog:"Cadastro de treinamentos"
   },
   GD = {
     strategy: "Encontre pessoas qualificadas por área e oportunidades de atuação por pessoa.",
@@ -2087,6 +2158,7 @@ var A = B(le(), 1),
     away: "Consulte o histórico, registre um afastamento ou confirme o retorno à ativa.",
     employees: "Conhe\xE7a as compet\xEAncias e o hist\xF3rico de cada pessoa.",
     departments: "Organize as \xE1reas e os processos da sua opera\xE7\xE3o.",
+    history: "Consulte quando cada movimentação foi registrada e quais dados mudaram.",
     trainings: "Registre aprendizados e acompanhe as datas de renova\xE7\xE3o."
   },
   Mh = {
@@ -3489,6 +3561,7 @@ function Rh() {
       if (!M.success) throw Error(M.error.issues.slice(0, 5).map(Me => Me.message).join(`
 `));
       let T = M.data;
+      historyRecord(e,T);
       if (l) {
         t(T), El.success("Altera\xE7\xE3o feita na demonstra\xE7\xE3o.");
         return;
@@ -3617,6 +3690,7 @@ function Rh() {
         const checked = lc.safeParse(plan.data);
         if (!checked.success) throw Error("Dados inv\xE1lidos ap\xF3s a limpeza: " + checked.error.issues.slice(0, 5).map(item => item.path.join(" / ") + ": " + item.message).join("; "));
         try {
+          historyRecord(base,checked.data);
           const saved = await window.__quapFirebase.commit(revision, checked.data);
           n(saved.revision || revision + 1), t(checked.data), o(checked.data), m("");
           setSeseMoOpen(false); setSeseMoDone(plan); await seseMoMark(); El.success("Cadastro refeito: " + checked.data.employees.length + " colaboradores em " + checked.data.departments.length + " setores" + (plan.removedSectors.length ? " (" + plan.removedSectors.length + " setor(es) fora da planilha exclu\xEDdo(s))" : "") + ".");
@@ -4160,7 +4234,7 @@ function Rh() {
             }) : i === "away" ? Be.createElement("label", { className: "field sese-away-picker" }, "Registrar afastamento",
               Be.createElement("select", { value: "", disabled: v || (!l && (d || !!f)), onChange: event => { if (event.target.value) setSeseAbsenceId(event.target.value); } },
                 Be.createElement("option", { value: "" }, "Escolha um colaborador ativo"),
-                e.employees.filter(person => !awayIds.has(person.id)).map(person => Be.createElement("option", { key: person.id, value: person.id }, [person.name, person.registration].filter(Boolean).join(" · "))))) : i === "strategy" ? null : i === "employees" ? io("Novo colaborador", () => ot("employee")) : i === "departments" ? io("Novo setor", () => ot("department")) : i === "catalog" ? io("Novo treinamento geral", () => setSeseEdit({})) : i === "trainings" ? io("Registrar realização", () => ot("training")) : io("Nova atividade", () => ot("task"))
+                e.employees.filter(person => !awayIds.has(person.id)).map(person => Be.createElement("option", { key: person.id, value: person.id }, [person.name, person.registration].filter(Boolean).join(" · "))))) : (i === "strategy" || i === "history") ? null : i === "employees" ? io("Novo colaborador", () => ot("employee")) : i === "departments" ? io("Novo setor", () => ot("department")) : i === "catalog" ? io("Novo treinamento geral", () => setSeseEdit({})) : i === "trainings" ? io("Registrar realização", () => ot("training")) : io("Nova atividade", () => ot("task"))
           })]
         }), f && !l && (0, A.jsxs)("div", {
           className: "error-banner",
@@ -4190,7 +4264,7 @@ function Rh() {
             children: "Carregando seus registros\u2026"
           })]
         }) : (0, A.jsxs)(A.Fragment, {
-          children: [i === "strategy" && !f && (0, A.jsx)(SeseStrategy, { data: e, onDepartment: id => { Ht("departments"); setSeseDeptQuery(""); setSeseSectorFocus(id); sesePolyGo(id); }, onPerson: id => Te(id) }), i !== "strategy" && i !== "departments" && i !== "catalog" && (0, A.jsxs)("div", {
+          children: [i === "strategy" && !f && (0, A.jsx)(SeseStrategy, { data: e, onDepartment: id => { Ht("departments"); setSeseDeptQuery(""); setSeseSectorFocus(id); sesePolyGo(id); }, onPerson: id => Te(id) }), i !== "history" && i !== "strategy" && i !== "departments" && i !== "catalog" && (0, A.jsxs)("div", {
             className: "filterbar",
             children: [(0, A.jsxs)("div", {
               className: "filter-group",
@@ -4603,7 +4677,7 @@ function Rh() {
                 action: io("Novo setor", () => ot("department"))
               })
             })]
-          }), i === "trainings" && (0, A.jsxs)(A.Fragment, {
+          }), i === "history" && Be.createElement(SeseHistory,{data:e}), i === "trainings" && (0, A.jsxs)(A.Fragment, {
             children: [(0, A.jsxs)("div", {
               className: "training-filters",
               children: [(0, A.jsx)(Kl, {
@@ -5636,7 +5710,7 @@ Ela junta quatro coisas:
 - **Colaboradores** (cadastro, matrícula, admissão, cargo, turno, responsável);
 - **Setores** (áreas da operação, com atividades e cursos obrigatórios);
 - **Cadastro de treinamentos** (catálogo único de cursos, com validade e tags);
-- **Treinamentos realizados** (o histórico de quem fez o quê, e quando vence).
+- **Histórico** (lançamentos, alterações e exclusões por data de registro).
 
 Com isso ela calcula sozinha a **aptidão por setor**, monta a **matriz de cursos** e a **Matriz Operacional** (as bolinhas de nível 0 a 3), avisa dos **vencimentos** e controla **afastamentos e reciclagem**. Tudo sincroniza em tempo real e pode ser levado para o **Excel**.`,
   rel: ["navegacao","primeiros-passos","visao-geral"]
@@ -5652,7 +5726,7 @@ Com isso ela calcula sozinha a **aptidão por setor**, monta a **matriz de curso
 - **Colaboradores** — lista da equipe, com busca, edição rápida e histórico.
 - **Setores** — áreas, atividades, cursos obrigatórios e a Matriz de Competência de cada setor.
 - **Cadastro de treinamentos** — o catálogo único de cursos.
-- **Treinamentos realizados** — o histórico de realizações e as datas de renovação.
+- **Histórico** — pesquise movimentações e confira as datas anteriores e atuais.
 
 No topo ficam o **tema de cores**, o botão **Atualizar dados** e a barra do **Excel** (Baixar modelo, Importar Excel, Exportar Excel).`,
   rel: ["visao-geral","estrategica","tema","excel-exportar"]
@@ -5666,7 +5740,7 @@ No topo ficam o **tema de cores**, o botão **Atualizar dados** e a barra do **E
 1. **Cadastro de treinamentos** → cadastre os cursos (nome, tempo, validade em meses, tags).
 2. **Setores** → crie os setores e marque os **cursos de pré-requisito** de cada um.
 3. **Colaboradores** → cadastre as pessoas e escolha o setor de cada uma.
-4. **Treinamentos realizados** → registre quem fez cada curso e quando.
+4. **Colaboradores** → abra a pessoa e registre a realização do treinamento.
 5. **Setores → Matriz de Competência** → ajuste as colunas/ordem e imprima.
 
 Se você já tem uma planilha, pule direto para **Importar Excel** (use antes o **Baixar modelo**). A ordem sugerida na planilha é a mesma: Departamentos → Atividades e Colaboradores → Avaliações e Treinamentos.
@@ -6031,7 +6105,7 @@ O contador mostra “1 pessoa registrada” / “N pessoas registradas”. Se al
   id: "treino-registrar", cat: "Treinamentos", title: "Registrar um treinamento realizado",
   k: ["registrar","registro","realizacao","realizado","lancar","lancamento","treinamento realizado","fez o curso","concluiu","registrar realizacao","data de realizacao","cadastrar treinamento"],
   p: ["registrar realizacao","como registrar treinamento","lancar curso feito","registrar que a pessoa fez o curso","novo registro de treinamento"],
-  a: `Em **Treinamentos realizados**, clique em **Registrar realização** (ou use **+ Adicionar treinamento** no histórico da pessoa).
+  a: `Em **Colaboradores**, abra o histórico da pessoa e use **+ Adicionar treinamento**. Consulte o lançamento depois no menu **Histórico**.
 
 Preencha:
 - **Colaborador** — pela **Matrícula do colaborador** (quando abre pela tela geral) ou já vinculado, se abriu pelo histórico.
@@ -6079,7 +6153,7 @@ No Excel vale a mesma regra: a renovação é uma nova linha com **outro ID**.`,
   id: "treino-filtros", cat: "Treinamentos", title: "Filtros e ordenação em Treinamentos realizados",
   k: ["filtro","filtros","filtrar","ordenar","ordenacao","situacao do vencimento","alertas","colaborador","setor","atencao","todas as situacoes","sem vencimento","em dia"],
   p: ["filtrar por vencimento","ver so os vencidos","ordenar treinamentos","ver treinamentos de um setor","situacao do vencimento","quem vence nos proximos 30 dias","ver o que vence","listar vencidos","lista de vencimentos"],
-  a: `Em **Treinamentos realizados** use a barra de filtros:
+  a: `Na **Consulta de treinamentos**, aberta pelos alertas da visão geral, use a barra de filtros:
 
 - **Filtrar setor** — todos ou um setor.
 - **Todos os colaboradores** — escolha uma pessoa.
