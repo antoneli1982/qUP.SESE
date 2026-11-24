@@ -3417,6 +3417,12 @@ function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, recor
   const words = seseText(query).trim().split(/\s+/).filter(Boolean);
   const found = options.filter(item => words.every(word => seseText(item.title).includes(word)));
   const toggle = id => { const removing = selected.includes(id); onChange(removing ? value.filter(item => item !== id) : [...new Set([...value.filter(Boolean), id])]); onExcludedChange(removing ? [...new Set([...excluded, id])] : excluded.filter(item => item !== id)); };
+  function changeCourse(item) {
+    if (!onRegister) return toggle(item.id);
+    if (excluded.includes(item.id)) return onExcludedChange(excluded.filter(id => id !== item.id));
+    if (selected.includes(item.id)) return onExcludedChange([...excluded, item.id]);
+    onRegister(item);
+  }
   const markFound = () => { const ids = found.map(item => item.id); onChange([...new Set([...value.filter(Boolean), ...ids])]); onExcludedChange(excluded.filter(id => !ids.includes(id))); };
   const unmarkFound = () => { const ids = new Set(found.map(item => item.id)); onChange(value.filter(id => !ids.has(id))); onExcludedChange([...new Set([...excluded, ...ids])]); };
   return /*#__PURE__*/_jsxs("div", { className: "sese-prerequisite-editor", children: [
@@ -3430,7 +3436,7 @@ function SesePrerequisiteEditor({ data, value = [], onChange, label, hint, recor
         !onRegister && /*#__PURE__*/_jsx("button", { type: "button", className: "text-link", disabled: !found.some(item => selected.includes(item.id)), onClick: unmarkFound, children: "Desmarcar resultados" })
       ] }),
       /*#__PURE__*/_jsx("div", { className: "sese-prerequisite-checklist", role: "group", "aria-label": label, children: found.length ? found.map(item => /*#__PURE__*/_jsxs("label", { className: "sese-prerequisite-option" + (selected.includes(item.id) ? " selected" : ""), children: [
-        /*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), disabled: recordedIds.includes(item.id), onChange: () => onRegister && !selected.includes(item.id) ? onRegister(item) : toggle(item.id) }),
+        /*#__PURE__*/_jsx("input", { type: "checkbox", checked: selected.includes(item.id), onChange: () => changeCourse(item) }),
         /*#__PURE__*/_jsx("span", { children: item.title + (globals.includes(item.id) ? " · Global" : "") })
       ] }, item.id)) : /*#__PURE__*/_jsx("p", { className: "muted", children: "Nenhum curso encontrado com esse nome." }) }),
       !onRegister && /*#__PURE__*/_jsx("p", { className: "form-hint", children: "Marque quantos cursos precisar. As seleções são mantidas ao mudar a busca. Clique em Salvar para cadastrar todos de uma vez." })
@@ -3872,6 +3878,13 @@ function Rh() {
           }
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&Me.registration&&(item.registration===Me.registration||item.id==="MAT_"+Me.registration))) throw Error("Já existe um colaborador com essa matrícula.");
           if(ne === "employee" && e.employees.some(item=>item.id!==T&&seseSameName(item.name,Me.name))) throw Error("Já existe um colaborador com esse nome.");
+          if (ne === "employee" && b.id && L.removedCourseIds?.length) {
+            const removed = new Set(L.removedCourseIds);
+            Me.prerequisiteTrainingIds = Me.prerequisiteTrainingIds.filter(id => !removed.has(id));
+            M.trainings = M.trainings.filter(record =>
+              record.employeeId !== T || !removed.has(seseRecordCourseKey(M, record))
+            );
+          }
           let st = Mh[ne];
           M[st] = [...M[st].filter(It => It.id !== T), ne === "department" ? { ...(M[st].find(It => It.id === T) || {}), ...Me } : Me];
           if (ne === "department") {
@@ -4845,7 +4858,7 @@ function Rh() {
               onChange: value => H(previous => ({ ...previous, extraDepartmentIds: value })),
               options: [...e.departments].filter(item => item.id !== L.departmentId).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true })).map(item => ({ id: item.id, name: item.name }))
             }), ["employee", "department", "task"].includes(b?.kind || "") && wo("name", b?.kind === "employee" ? "Nome completo *" : b?.kind === "department" ? "Nome do setor *" : "Nome *"), b?.kind === "employee" && (0, A.jsxs)(A.Fragment, {
-              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), recordedIds: b.id ? e.trainings.filter(record => record.employeeId === b.id).map(record => seseRecordCourseKey(e, record)) : [], onRegister: b.id ? registerEmployeeCourse : undefined, label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: b.id ? "Os cursos já cadastrados estão marcados. Marque um curso que falta para preencher o treinamento." : "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
+              children: [...["role", "shift", "responsible"].map(field => (0, A.jsx)("datalist", { id: "sese-dl-" + field, children: seseFieldOptions(field).map(option => (0, A.jsx)("option", { value: option }, option)) }, field)), wo("registration", "Matrícula", "text", !1), wo("admissionDate", "Admissão", "date", !1), wo("role", "Cargo Atual", "text", !1), wo("shift", "Turno", "text", !1), wo("responsible", "Responsável", "text", !1), /*#__PURE__*/_jsx(SesePrerequisiteEditor, { data: e, value: L.prerequisiteTrainingIds || [], onChange: value => H(previous => ({ ...previous, prerequisiteTrainingIds: value })), excluded: L.removedCourseIds || [], onExcludedChange: removedCourseIds => H(previous => ({ ...previous, removedCourseIds })), recordedIds: b.id ? e.trainings.filter(record => record.employeeId === b.id).map(record => seseRecordCourseKey(e, record)) : [], onRegister: b.id ? registerEmployeeCourse : undefined, label: "CURSOS DE PRÉ-REQUISITO / TREINAMENTOS DO COLABORADOR", hint: b.id ? "Desmarque um curso para excluir todas as datas dele neste colaborador ao salvar. Marque novamente para desfazer. Selecione um curso novo para registrar o treinamento." : "Selecione os cursos que o colaborador já possui ou concluiu." }), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>setSeseAbsenceId(b.id),children:"Afastamentos e reciclagem"}), b.id && (0,A.jsx)("button",{type:"button",className:"btn outline",onClick:()=>{const employeeId=b.id;z(null);ot("training",undefined,{employeeId});},children:"+ Adicionar treinamento"}), b.id && e.employees.find(S => S.id === b.id)?.departmentId !== L.departmentId && (0, A.jsx)("p", {
                 className: "form-hint",
                 children: "Ao salvar, o colaborador passa para a matriz do novo setor, com os pré-requisitos e pendências dessa área. Seus treinamentos e níveis por curso são preservados."
               })]
@@ -5964,7 +5977,7 @@ Antes de excluir, vale **Exportar Excel** para ter um backup. Se a pessoa só es
 - Na **Matriz Operacional** contam como curso válido sem data (nível automático **2**).
 - Quando você registrar o treinamento de verdade (com data), o registro passa a valer no lugar.
 
-Dica: o formulário avisa “Os cursos já cadastrados estão marcados. Marque um curso que falta para preencher o treinamento.”`,
+Dica: o formulário avisa “Desmarque um curso para excluir todas as datas dele neste colaborador ao salvar. Marque novamente para desfazer. Selecione um curso novo para registrar o treinamento.”`,
   rel: ["matriz-cursos","matriz-operacional","treino-registrar"]
 },
 
