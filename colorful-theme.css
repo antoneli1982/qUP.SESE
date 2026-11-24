@@ -170,3 +170,31 @@ html[data-theme=colorful] .sese-batch-list li.is-done .sese-people-avatar { colo
     }
   }
 }
+
+/* Give each employee department its own line in the list and mobile cards. */
+#root td > .sese-sector-link {
+  display: flex;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+#root td > .sese-sector-extra {
+  margin-block-start: .375rem;
+}
+#root .sese-cards td:has(> .sese-sector-link) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: .375rem;
+  text-align: start !important;
+}
+#root .sese-cards td > .sese-sector-link {
+  max-width: 100%;
+  white-space: normal;
+  margin: 0;
+}
+#root .sese-cards .sese-sector-link span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
