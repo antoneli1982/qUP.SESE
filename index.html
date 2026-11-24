@@ -2931,8 +2931,8 @@ function SeseDepartmentPeople({ data, departmentId, onClose, onOpenList, onEdit 
   const [query, setQuery] = Be.useState("");
   const department = data.departments.find(item => item.id === departmentId);
   const all = data.employees.filter(item => seseInDept(item, departmentId)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
-  const term = query.trim().toLocaleLowerCase("pt-BR");
-  const people = term ? all.filter(item => [item.name, item.registration, item.role, item.shift, item.responsible].join(" ").toLocaleLowerCase("pt-BR").includes(term)) : all;
+  const term = seseText(query).trim();
+  const people = term ? all.filter(item => seseText([item.name, item.registration, item.role, item.shift, item.responsible].join(" ")).includes(term)) : all;
   const h = Be.createElement;
   return _jsx(TA, {
     open: true,
@@ -3934,7 +3934,7 @@ function Rh() {
   }
   const awayIds = Be.useMemo(() => new Set(e.absences.filter(record => !record.endDate).map(record => record.employeeId)), [e.absences]);
   let so = HA(e, C),
-    Fl = e.employees.filter(S => (i !== "away" || awayIds.has(S.id)) && (C === "all" || seseInDept(S, C)) && S.name.toLocaleLowerCase("pt-BR").includes(g.toLocaleLowerCase("pt-BR"))),
+    Fl = e.employees.filter(S => (i !== "away" || awayIds.has(S.id)) && (C === "all" || seseInDept(S, C)) && seseText(S.name).includes(seseText(g).trim())),
     qn = S => e.departments.find(M => M.id === S)?.name || "\u2014",
     Ta = S => e.employees.find(M => M.id === S)?.name || "\u2014",
     xi = e.trainings.filter(S => (C === "all" || e.employees.find(M => M.id === S.employeeId)?.departmentId === C) && (w === "all" || S.employeeId === w) && (x === "all" || (x === "attention" ? ["expired", "week", "month"].includes(Vr(S.expiry).key) : Vr(S.expiry).key === x)) && seseMatches(S,g,[Ta(S.employeeId),...(e.trainingCatalog.find(item=>item.id===S.templateId)?.tags||[])].join(" "))).sort((S, M) => tsort === "name" ? (Ta(S.employeeId).localeCompare(Ta(M.employeeId), "pt-BR", { sensitivity: "base" }) || (S.title || "").localeCompare(M.title || "", "pt-BR", { sensitivity: "base" }) || (M.date || "").localeCompare(S.date || "")) : tsort === "dateDesc" ? (M.date || "").localeCompare(S.date || "") : tsort === "dateAsc" ? (S.date || "9999").localeCompare(M.date || "9999") : (S.expiry || "9999").localeCompare(M.expiry || "9999")),
